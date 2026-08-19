@@ -2,6 +2,7 @@ import { mainCharacter } from "./mainCharacter.js";
 import { enemy, battleEnemies } from "./enemies.js";
 import readline from "readline";
 import chalk, { type ChalkInstance } from "chalk";
+import { listaConsumiveis } from "./artefacts.js";
 
 const monstrosPorAndar: { [key: number]: string[] } = {
   1: ["Goblin", "Pequeno Troll", "Cão de Caça"],
@@ -15,10 +16,12 @@ const bossesPorAndar: { [key: number]: string[] } = {
   3: ["Serpente de Fogo"],
 };
 
+
+
 class RoomGenerator {
   protected inimigo: enemy[] = [];
   private recompensa: string[] = [];
-  private roomChance: number = Math.floor(Math.random() * 100);
+  protected roomChance: number = Math.floor(Math.random() * 100);
   protected andarAtual: number = 1;
   protected salaAtual: number = 0;
   protected salaConcluida: boolean = true;
@@ -136,7 +139,7 @@ class GameController extends RoomGenerator {
 
   constructor(name: string) {
     super();
-    this.player = new mainCharacter(name, 15, 100);
+    this.player = new mainCharacter(name, 15, 100, 100, 100, 0, 0, 0, 0, 0);
     this.generateRoom(this.andarAtual);
   }
 
@@ -191,7 +194,20 @@ class GameController extends RoomGenerator {
             );
           }
           if (escolha === "2") {
-            await printLento(`Você não possui itens para usar!`, 30, chalk.gray);
+            if(this.player.inventory.length === 0){
+              await printLento(`Você não possui itens no inventário!`, 30, chalk.red);
+            }else{
+              await printLento(`Itens disponíveis: ${this.player.inventory.join(", ")}`, 30, chalk.cyan);
+              const escolha = 
+              await esperarEscolha();
+
+              const itemEscolhido = this.player.inventory[0];
+              if (itemEscolhido === "Poção de Cura") {
+                this.player.life += listaConsumiveis["Poção de Cura"].buff as number;
+              }
+              console.log(chalk.greenBright(`Você usou ${itemEscolhido} e recuperou ${listaConsumiveis["Poção de Cura"].buff} de vida!`));
+              this.player.inventory.splice(0, 1);
+            }
           }
           if (escolha === "3") {
             const escapeChance = Math.random();
@@ -242,6 +258,12 @@ class GameController extends RoomGenerator {
       this.player.experience += xpGanho;
       await printLento(`Você ganhou ${xpGanho} de experiência bônus por limpar a sala!`, 30, chalk.magentaBright);
       this.player.levelUp();
+      
+      if (this.roomChance < 90) {
+        const recompensa = listaConsumiveis["Poção de Cura"];
+        this.player.inventory.push(recompensa.name);
+        await printLento(`Você encontrou uma ${recompensa.name}!`, 30, chalk.greenBright);
+      }
       await printLento(`Pressione 'X' para avançar para a próxima sala`, 30, chalk.gray);
     }
   }
