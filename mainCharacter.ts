@@ -1,6 +1,7 @@
-import { Attack } from "./actions.js";
-import type { Habilidade, IAttack } from "./actions.js";
-import type { ActiveBuff } from "./artefacts.js";
+import { Attack } from "./actions";
+import type { Habilidade, IAttack } from "./actions";
+import type { ActiveBuff, IWeapons } from "./artefacts";
+import { listaArmas } from "./artefacts";
 import chalk from "chalk";
 
 export class mainCharacter extends Attack {
@@ -21,10 +22,19 @@ export class mainCharacter extends Attack {
   public luck: number = 0; // Aumenta a chance de encontrar itens raros e a chance de acerto crítico
   public intelligence: number = 0; // Aumenta a quantidade de mana e a eficácia das habilidades mágicas
   public strength: number = 0; // Aumenta o dano físico
-  public taxaCritica: number = 0; // Aumenta a chance de acerto crítico
-  public bloqueando: boolean = false; // Indica se o personagem está bloqueando o próximo ataque
+  public bloqueando: boolean = false;
   public skills: Habilidade[] = [];
   public activeBuffs: ActiveBuff[] = [];
+  public weaponInventory: IWeapons[] = [];
+  public equippedWeapon: IWeapons;
+  public classe: string = "";
+  public pontosDeAtributo: number = 0;
+  public gold: number = 0;
+
+  // Taxa crítica deriva automaticamente da Destreza (2% por ponto de DEX)
+  get taxaCritica(): number {
+    return this.dexterity * 0.02;
+  }
 
   constructor(
     name: string,
@@ -48,31 +58,36 @@ export class mainCharacter extends Attack {
     this.mana = maxMana;
     this.maxMana = maxMana;
     this.defense = defense;
+    // Equipar a Espada Quebrada como arma inicial
+    this.equippedWeapon = listaArmas["Espada Quebrada"]!;
+    this.weaponInventory = [this.equippedWeapon];
   }
 
   estaVivo(): boolean {
     return this.life > 0;
   }
 
+  // Retorna o dano físico considerando a arma equipada e seu escalonamento
+  danoComArma(): number {
+    return this.equippedWeapon.calcularDano(this);
+  }
+
   levelUp(): boolean {
-    let levelUp = false;
-    while (this.experience >= this.experienceToNextLevel) {
+    if (this.experience >= this.experienceToNextLevel) {
       this.level += 1;
       this.experience -= this.experienceToNextLevel;
       this.experienceToNextLevel = 100 * (this.level * this.level);
-      this.attackPower += 5;
-      this.maxLife += 20 + this.level * 5; // Increase max life based on level
-      this.life = this.maxLife; // Reset current life to maximum
-      this.defense += 1; // Increase defense based on level
-      this.dexterity += 1;
-      this.taxaCritica += 0.01; // Increase critical hit chance based on level
-      this.luck += 1; // Increase luck based on level
-      this.intelligence += 1;
-      this.strength += 1; 1
-      this.maxEnergy += 10 + this.level * 2; // Increase max energy based on level
+
+      // Aumentos base de recursos por nível
+      this.maxLife += 20 + this.level * 5;
+      this.life = this.maxLife;
+      this.maxEnergy += 10 + this.level * 2;
       this.maxMana += 10 + this.level * 2;
-      this.energy = this.maxEnergy; // Reset current energy to maximum
-      this.mana = this.maxMana; // Reset current mana to maximum
+      this.energy = this.maxEnergy;
+      this.mana = this.maxMana;
+
+      // +1 ponto de atributo para o jogador alocar
+      this.pontosDeAtributo += 1;
 
       console.log(chalk.bgMagenta.white.bold(`\n LEVEL UP! `));
       console.log(
@@ -80,13 +95,13 @@ export class mainCharacter extends Attack {
           `Parabéns! ${this.name} subiu para o nível ${this.level}!`,
         ),
       );
-      console.log(chalk.yellow(`Ataque aumentado para ${this.attackPower}.`));
-      console.log(chalk.green(`Vida aumentada para ${this.life}.`));
+      console.log(chalk.green(`Vida máxima aumentada para ${this.maxLife}.`));
+      console.log(chalk.cyan(`Você ganhou 1 ponto de atributo para alocar!`));
 
-      levelUp = true;
+      return true;
     }
 
-    return levelUp;
+    return false;
   }
 
   upgrades(): void {
@@ -95,20 +110,14 @@ export class mainCharacter extends Attack {
   }
 
   processarBuffs(): void {
-    let hasOutput = false;
-    // We iterate backwards to safely remove items while looping
     for (let i = this.activeBuffs.length - 1; i >= 0; i--) {
       const buff = this.activeBuffs[i];
-      if (!hasOutput) {
-        console.log(chalk.cyanBright(`\n--- Processando Efeitos ---`));
-        hasOutput = true;
-      }
       if (buff!.onTurn) {
         buff!.onTurn(this);
       }
-      
+
       buff!.duration -= 1;
-      
+
       if (buff!.duration <= 0) {
         if (buff!.onExpire) {
           buff!.onExpire(this);

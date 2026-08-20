@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RogueText</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Pixel&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+  <div id="mute-btn" style="position: fixed; top: 15px; right: 20px; font-size: 24px; cursor: pointer; z-index: 9999;">
+    🔇
+  </div>
+  <div id="app">
+    <h1 id="game-title">RogueText</h1>
+    <div id="game-container">
+      <!-- Renderização via Controller.ts irá manipular este container -->
+    </div>
+  </div>
+  <script type="module" src="/Controller.ts"></script>
+</body>
+
+</html>

@@ -4,13 +4,15 @@ export class enemy {
   public attackPower: number = 0
   public name: string = ''
   public xpReward: number = 0
+  public goldReward: number = 0
 
   constructor(name: string, attack: number, life: number) {
 
     this.life = life
     this.maxLife = life
     this.attackPower = attack
-    this.xpReward = Math.floor((this.attackPower * 1.25) + (this.life * 0.75));
+    this.xpReward = Math.floor((this.attackPower * 2.5) + (this.life * 1.5));
+    this.goldReward = Math.floor(this.attackPower * 1.25) + (this.life * 1.25)
     this.name = name
   }
 
@@ -64,4 +66,5 @@ export const battleEnemies = {
   "Dragão": { attackPower: 40, life: 150 },
   "Hidra": { attackPower: 60, life: 300 },
   "Serpente de Fogo": { attackPower: 80, life: 400 },
+  "Servo das Sombras": { attackPower: 160, life: 800 }
 }
