@@ -116,7 +116,7 @@ const esperarEscolha = () => {
   return new Promise<string>((resolve) => {
     const ouvinte = (str: string, key: any) => {
       if (key && /^[1-9]$/.test(key.name)) {
-        console.log(`Você escolheu a opção: ${key.name}`);
+        // console.log(`Você escolheu a opção: ${key.name}`);
         process.stdin.removeListener("keypress", ouvinte);
 
         resolve(key.name);
@@ -126,7 +126,7 @@ const esperarEscolha = () => {
   });
 };
 
-const mostrarStatus = (player: mainCharacter, inimigo: { name: string; life: number; maxLife: number }) => {
+const mostrarStatus = async(player: mainCharacter, inimigo: { name: string; life: number; maxLife: number }[]) => {
   const barraVida = (atual: number, max: number, tamanho: number = 10) => {
     const preenchido = Math.round((atual / max) * tamanho);
     const vazio = tamanho - preenchido;
@@ -143,6 +143,7 @@ const mostrarStatus = (player: mainCharacter, inimigo: { name: string; life: num
     chalk.red(` ❤️  Vida:    `) + barraVida(player.life, player.maxLife) + chalk.red(` ${player.life}/${player.maxLife}`) +
     chalk.blue(`   💧 Mana:   `) + barraVida(player.mana, player.maxMana, 8) + chalk.blue(` ${player.mana}/${player.maxMana}`)
   );
+  console.log(chalk.gray("─".repeat(50)));
   console.log(
     chalk.yellow(` ⚡ Energia: `) + barraVida(player.energy, player.maxEnergy) + chalk.yellow(` ${player.energy}/${player.maxEnergy}`) +
     chalk.magenta(`   ⚔️  Ataque: ${player.attackPower}`) +
@@ -153,9 +154,15 @@ const mostrarStatus = (player: mainCharacter, inimigo: { name: string; life: num
     console.log(` ✨ Buffs: ${buffsAtivos}`);
   }
   console.log(chalk.gray("─".repeat(50)));
-  console.log(
-    chalk.redBright(` 💀 ${inimigo.name}: `) + barraVida(inimigo.life, inimigo.maxLife) + chalk.redBright(` ${inimigo.life}/${inimigo.maxLife}`)
-  );
+  for (let i = 0; i < inimigo.length; i++) {
+     console.log(chalk.redBright(` 💀 [${i + 1}] ${inimigo[i]!.name}: `) + barraVida(inimigo[i]!.life, inimigo[i]!.maxLife) + chalk.redBright(` ${inimigo[i]!.life}/${inimigo[i]!.maxLife}`));
+     console.log(chalk.gray("─".repeat(50)));
+  }
+  const escolha = await esperarEscolha()
+  if(escolha === '1'){
+
+  }
+
   console.log(chalk.gray("─".repeat(50)));
 };
 
@@ -232,7 +239,7 @@ class GameController extends RoomGenerator {
     ) {
       for (let i = 0; i < this.inimigo.length; i++) {
         while (this.inimigo[i]!.life > 0 && this.player.life > 0) {
-          mostrarStatus(this.player, this.inimigo[i]!);
+          mostrarStatus(this.player, this.inimigo);
           await printLento(`--- SEU TURNO ---`, 20, chalk.blueBright.bold);
           await printLento(
             `[1] Atacar | [2] Usar Item | [3] Usar Habilidade | [4] Fugir`,
@@ -242,6 +249,11 @@ class GameController extends RoomGenerator {
           const escolha = await esperarEscolha();
           if (escolha === "1") {
             // 1. Calcula o Dano Base (Ataque + Força)
+            console.log(chalk.greenBright(`Escolha um dos ${this.inimigo.length} alvos:`))
+            for(let i = 0; i < this.inimigo.length; i++){
+              await printLento(`[${i + 1}] ${this.inimigo[i]!.name}`, 10, chalk.greenBright)
+            }
+
             const danoBase =
               this.player.attackPower + this.player.strength * 1.5;
 
@@ -251,7 +263,14 @@ class GameController extends RoomGenerator {
             danoFinal = Math.floor(danoFinal); // Arredonda para não ter dano quebrado
 
             // 3. Aplica o dano
-            this.inimigo[i]!.life -= danoFinal;
+            const escolhaAlvo = await esperarEscolha()
+            const enemyIndex = parseInt(escolhaAlvo) - 1
+            const inimigoEscolhido = this.inimigo[enemyIndex]
+            if(enemyIndex >= 0 && enemyIndex <= this.inimigo.length){
+              
+              inimigoEscolhido!.life -= danoFinal
+            }
+            // this.inimigo[i]!.life -= danoFinal;
 
             if (isCrit) {
               await printLento(
@@ -262,7 +281,7 @@ class GameController extends RoomGenerator {
               );
             } else {
               await printLento(
-                `Você ataca ${this.inimigo[i]!.name}! O ataque causa ${danoFinal} de dano.`,
+                `Você ataca ${inimigoEscolhido?.name}! O ataque causa ${danoFinal} de dano.`,
                 30,
                 chalk.yellowBright,
               );
