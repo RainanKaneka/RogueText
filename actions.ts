@@ -74,7 +74,7 @@ export class BolaDeFogo implements Habilidade {
     }
     jogador.mana -= this.custoMana;
     const danoBase = 15;
-    const bonusInt = calcBonusAtributo(jogador.intelligence, 0.18);
+    const bonusInt = calcBonusAtributo(jogador.intelligence, 0.12);
     const danoTotal = danoBase + bonusInt;
     console.log(chalk.bgRed.white.bold(`🔥 Você conjura uma Bola de Fogo! (Bônus INT: +${bonusInt})`));
     for (let inimigo of inimigos) {
@@ -122,7 +122,7 @@ export class Cura implements Habilidade {
     }
     jogador.mana -= this.custoMana;
     const curaBase = 20;
-    const bonusInt = calcBonusAtributo(jogador.intelligence, 0.20);
+    const bonusInt = calcBonusAtributo(jogador.intelligence, 0.12);
     const curaTotal = curaBase + bonusInt;
     jogador.life = Math.min(jogador.life + curaTotal, jogador.maxLife);
     console.log(chalk.greenBright(`💚 Você se curou restaurando ${curaTotal} de vida! (Bônus INT: +${bonusInt})`));

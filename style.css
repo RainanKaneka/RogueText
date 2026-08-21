@@ -206,3 +206,77 @@ body {
 .btn-action-container:hover .btn-tooltip {
   display: block;
 }
+
+/* SISTEMA DE PARRY */
+#parry-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+#parry-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 500px;
+  max-width: 90vw;
+}
+
+#parry-label {
+  font-family: 'Geist Pixel', monospace;
+  font-size: 1.5rem;
+  color: var(--accent-color);
+  letter-spacing: 2px;
+}
+
+#parry-label kbd {
+  background: #333;
+  border: 1px solid #888;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 1rem;
+  color: #fff;
+}
+
+#parry-bar {
+  position: relative;
+  width: 100%;
+  height: 36px;
+  background-color: #3a0000;
+  border: 2px solid #888;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+#parry-window {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background-color: #2f9e44;
+  opacity: 0.85;
+  border-radius: 2px;
+  transition: none;
+}
+
+#parry-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background-color: #ffffff;
+  box-shadow: 0 0 8px #fff, 0 0 16px #aaa;
+  border-radius: 2px;
+  transition: none;
+}
+
+#parry-streak {
+  font-family: 'Geist Pixel', monospace;
+  font-size: 0.9rem;
+  color: #aaa;
+}

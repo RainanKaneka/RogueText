@@ -78,8 +78,13 @@ export class mainCharacter extends Attack {
       this.experience -= this.experienceToNextLevel;
       this.experienceToNextLevel = 100 * (this.level * this.level);
 
+      let defCalc = this.defense;
+      // Subtrai a defesa temporária das poções para não escalar vida máxima base
+      const armorBuffsCount = this.activeBuffs.filter(b => b.name === "Armadura Aumentada").length;
+      defCalc -= (armorBuffsCount * 10);
+
       // Aumentos base de recursos por nível
-      this.maxLife += 20 + (this.level * 5) * (this.defense / 2);
+      this.maxLife += 20 + (this.level * 5) * (defCalc / 2);
       this.life = this.maxLife;
       this.maxEnergy += 10 + (this.level * 2) * (this.strength / 5);
       this.maxMana += 10 + (this.level * 2) * (this.intelligence /5);

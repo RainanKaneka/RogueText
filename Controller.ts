@@ -5,6 +5,7 @@ import { sortearTresHabilidades } from "./actions";
 import { getClassesDisponiveis, getClassesBloqueadas, aplicarClasse } from "./classes";
 import { lerSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras } from "./saveData";
 import { initMusic, playMusic } from "./music.js";
+import { showParryBar } from "./parry.js";
 
 // Dados Globais
 const monstrosPorAndar: { [key: number]: string[] } = {
@@ -38,6 +39,17 @@ let andarAtual: number = 1;
 let salaAtual: number = 0;
 let logMensagem: string = "Bem-vindo ao RogueText!";
 let opcoesAcao: { texto: string, acao: () => void, descricao?: string }[] = [];
+let lojaAba: "comprar" | "vender" = "comprar";
+let itemParaConfirmarVenda: { tipo: "arma" | "consumivel"; nome: string; raridade: string; preco: number } | null = null;
+
+// Preços de revenda por raridade (em ouro)
+const PRECO_REVENDA: Record<string, number> = {
+  "COMUM": 80,
+  "RARA": 200,
+  "EPICA": 500,
+  "LENDARIA": 1200,
+  "UNICA": 3000,
+};
 
 // Funções de UI
 const app = document.getElementById("game-container")!;
@@ -90,52 +102,96 @@ function render() {
 
   if (estadoAtual === "LOJA") {
     const save = lerSave();
-    let html = `<h2>Loja (Ouro Global: ${save.gold}G)</h2><div class="action-buttons" style="flex-direction:column; align-items:center;">`;
     const armasAVenda = Object.values(listaArmas).filter(a => a.price > 0);
-    const consumiveisAVenda = Object.values(listaConsumiveis).filter(c => true); // Supondo que todos consumiveis tem preço? Espere, consumíveis na loja? Em artefacts.ts os consumiveis tem price?
-    // Precisarei verificar se consumíveis tem preço. Se não, preciso adicionar na interface.
-    // Vamos apenas exibir armas por enquanto na UI principal, e depois eu corrijo os consumíveis no artefacts.ts.
-    
-    html += `<h3>Armas</h3><div class="action-buttons" style="flex-direction:column; align-items:center;">`;
-    armasAVenda.forEach((arma, idx) => {
-      const comprado = save.armasExtras.includes(arma.name);
-      if (comprado) {
-         html += `<button class="btn-action" disabled>${arma.name} - Comprado</button>`;
+
+    let html = `
+      <h2>Loja <span style="color:#aaa; font-size:1rem;">(Ouro Global: ${save.gold}G)</span></h2>
+      <div style="display:flex; gap:10px; margin-bottom:16px;">
+        <button class="btn-action" id="btn-aba-comprar" style="${lojaAba === 'comprar' ? 'border-color: var(--accent-color); color: var(--accent-color);' : ''}">🛒 Comprar</button>
+        <button class="btn-action" id="btn-aba-vender" style="${lojaAba === 'vender' ? 'border-color: #ff6b6b; color: #ff6b6b;' : ''}">💰 Vender</button>
+      </div>
+    `;
+
+    if (lojaAba === "comprar") {
+      html += `<div class="action-buttons" style="flex-direction:column;">`;
+      html += `<h3>Armas</h3>`;
+      armasAVenda.forEach((arma, idx) => {
+        const comprado = save.armasExtras.includes(arma.name);
+        if (comprado) {
+          html += `<button class="btn-action" disabled>${arma.name} — Comprado</button>`;
+        } else {
+          html += `<button class="btn-action" id="btn-comprar-arma-${idx}">${arma.name} (${arma.raridade}) — ${arma.price}G</button>`;
+        }
+      });
+      html += `<h3 style="margin-top:12px;">Consumíveis</h3>`;
+      Object.values(listaConsumiveis).forEach((cons, idx) => {
+        const preco = (cons as any).price || 30;
+        const qtd = save.consumiveisExtras.filter(nome => nome === cons.name).length;
+        const txtQtd = qtd > 0 ? ` (${qtd}x)` : "";
+        html += `<button class="btn-action" id="btn-comprar-cons-${idx}">${cons.name}${txtQtd} — ${preco}G</button>`;
+      });
+      html += `</div>`;
+    } else {
+      // Aba de Venda
+      html += `<div class="action-buttons" style="flex-direction:column;">`;
+
+      // Jogador só existe durante uma run
+      if (!jogador) {
+        html += `<p style="color:#aaa; text-align:center; margin-top:20px;">Você só pode vender itens durante uma run.<br>Inicie uma run e volte aqui para vender!</p>`;
       } else {
-         html += `<button class="btn-action" id="btn-comprar-arma-${idx}">${arma.name} - ${arma.price}G</button>`;
+        const armasParaVender = jogador.weaponInventory.filter(a => a.name !== "Espada Quebrada");
+        if (armasParaVender.length > 0) {
+          html += `<h3>Armas no Inventário</h3>`;
+          armasParaVender.forEach((arma, idx) => {
+            const precoVenda = PRECO_REVENDA[arma.raridade] ?? 50;
+            const isEquipada = jogador.equippedWeapon?.name === arma.name;
+            if (isEquipada) {
+              html += `<button class="btn-action" disabled style="opacity:0.5;">${arma.name} (${arma.raridade}) — Equipada</button>`;
+            } else {
+              html += `<button class="btn-action" id="btn-vender-arma-${idx}" style="border-color:#c92a2a;">${arma.name} (${arma.raridade}) — Vender por ${precoVenda}G</button>`;
+            }
+          });
+        } else {
+          html += `<p style="color:#aaa;">Nenhuma arma para vender.</p>`;
+        }
+
+        if (jogador.inventory.length > 0) {
+          html += `<h3 style="margin-top:12px;">Consumíveis</h3>`;
+          const inventarioUnico = [...new Set(jogador.inventory)];
+          inventarioUnico.forEach((nomeItem, idx) => {
+            const qtd = jogador.inventory.filter(i => i === nomeItem).length;
+            html += `<button class="btn-action" id="btn-vender-cons-${idx}" style="border-color:#c92a2a;">${nomeItem} (x${qtd}) — Vender 1 por 40G</button>`;
+          });
+        } else {
+          html += `<p style="color:#aaa;">Nenhum consumível para vender.</p>`;
+        }
       }
-    });
-    html += `</div>`;
-    
-    // Consumíveis
-    html += `<h3>Consumíveis</h3><div class="action-buttons" style="flex-direction:column; align-items:center;">`;
-    Object.values(listaConsumiveis).forEach((cons, idx) => {
-         const preco = (cons as any).price || 30; 
-         const qtd = save.consumiveisExtras.filter(nome => nome === cons.name).length;
-         const txtQtd = qtd > 0 ? ` (${qtd}x)` : "";
-         html += `<button class="btn-action" id="btn-comprar-cons-${idx}">${cons.name}${txtQtd} - ${preco}G</button>`;
-    });
-    html += `</div>`;
-    
+
+      html += `</div>`;
+    }
+
     html += `<button class="btn-action" style="margin-top:20px;" id="btn-loja-voltar">Voltar</button>`;
-    html += `</div>`;
     app.innerHTML = html;
 
-    armasAVenda.forEach((arma, idx) => {
-      const comprado = save.armasExtras.includes(arma.name);
-      if (!comprado) {
-        document.getElementById(`btn-comprar-arma-${idx}`)!.onclick = () => {
-          if (gastarGold(arma.price)) {
-            adicionarArmaExtra(arma.name);
-            render();
-          } else {
-            alert("Ouro insuficiente!");
-          }
-        };
-      }
-    });
+    // Listeners — Abas
+    document.getElementById("btn-aba-comprar")!.onclick = () => { lojaAba = "comprar"; render(); };
+    document.getElementById("btn-aba-vender")!.onclick = () => { lojaAba = "vender"; render(); };
 
-    Object.values(listaConsumiveis).forEach((cons, idx) => {
+    if (lojaAba === "comprar") {
+      armasAVenda.forEach((arma, idx) => {
+        const comprado = save.armasExtras.includes(arma.name);
+        if (!comprado) {
+          document.getElementById(`btn-comprar-arma-${idx}`)!.onclick = () => {
+            if (gastarGold(arma.price)) {
+              adicionarArmaExtra(arma.name);
+              render();
+            } else {
+              alert("Ouro insuficiente!");
+            }
+          };
+        }
+      });
+      Object.values(listaConsumiveis).forEach((cons, idx) => {
         document.getElementById(`btn-comprar-cons-${idx}`)!.onclick = () => {
           const preco = (cons as any).price || 30;
           if (gastarGold(preco)) {
@@ -145,9 +201,80 @@ function render() {
             alert("Ouro insuficiente!");
           }
         };
-    });
+      });
+    } else {
+      // Listeners — Venda (só existe se jogador estiver ativo)
+      if (jogador) {
+        const armasParaVender = jogador.weaponInventory.filter(a => a.name !== "Espada Quebrada");
+        armasParaVender.forEach((arma, idx) => {
+          const isEquipada = jogador.equippedWeapon?.name === arma.name;
+          if (!isEquipada) {
+            document.getElementById(`btn-vender-arma-${idx}`)!.onclick = () => {
+              const precoVenda = PRECO_REVENDA[arma.raridade] ?? 50;
+              const raridadesAlta = ["EPICA", "LENDARIA", "UNICA"];
+              if (raridadesAlta.includes(arma.raridade)) {
+                itemParaConfirmarVenda = { tipo: "arma", nome: arma.name, raridade: arma.raridade, preco: precoVenda };
+                estadoAtual = "CONFIRMAR_VENDA";
+                render();
+              } else {
+                jogador.weaponInventory = jogador.weaponInventory.filter((_, i) => i !== jogador.weaponInventory.indexOf(arma));
+                adicionarGold(precoVenda);
+                render();
+              }
+            };
+          }
+        });
+        const inventarioUnico = [...new Set(jogador.inventory)];
+        inventarioUnico.forEach((nomeItem, idx) => {
+          document.getElementById(`btn-vender-cons-${idx}`)!.onclick = () => {
+            const i = jogador.inventory.indexOf(nomeItem);
+            if (i !== -1) jogador.inventory.splice(i, 1);
+            adicionarGold(40);
+            render();
+          };
+        });
+      }
+    }
 
-    document.getElementById("btn-loja-voltar")!.onclick = () => { estadoAtual = "LOBBY"; render(); };
+    document.getElementById("btn-loja-voltar")!.onclick = () => { lojaAba = "comprar"; estadoAtual = "LOBBY"; render(); };
+    return;
+  }
+
+  if (estadoAtual === "CONFIRMAR_VENDA" && itemParaConfirmarVenda) {
+    const item = itemParaConfirmarVenda;
+    const corRaridade = item.raridade === "UNICA" ? "#f06595" : item.raridade === "LENDARIA" ? "#fcc419" : "#cc5de8";
+    app.innerHTML = `
+      <div class="hud-container" style="text-align: center; max-width: 400px; margin: 0 auto;">
+        <h2 style="color: ${corRaridade};">⚠️ Confirmar Venda</h2>
+        <p>Tem certeza que quer vender</p>
+        <p><strong style="color: ${corRaridade}; font-size: 1.3rem;">${item.nome}</strong></p>
+        <p style="color: #aaa;">(${item.raridade}) por <strong style="color: var(--accent-color);">${item.preco}G</strong>?</p>
+        <div style="display:flex; gap:10px; justify-content: center; margin-top: 20px;">
+          <button class="btn-action" id="btn-confirmar-venda" style="border-color: #c92a2a; color: #ff6b6b;">Vender</button>
+          <button class="btn-action" id="btn-cancelar-venda">Cancelar</button>
+        </div>
+      </div>
+    `;
+    document.getElementById("btn-confirmar-venda")!.onclick = () => {
+      if (item.tipo === "arma") {
+        jogador.weaponInventory = jogador.weaponInventory.filter(a => a.name !== item.nome);
+        if (jogador.equippedWeapon?.name === item.nome) {
+          jogador.equippedWeapon = jogador.weaponInventory[0] ?? listaArmas["Espada Quebrada"]!;
+        }
+      } else {
+        const i = jogador.inventory.indexOf(item.nome);
+        if (i !== -1) jogador.inventory.splice(i, 1);
+      }
+      adicionarGold(item.preco);
+      itemParaConfirmarVenda = null;
+      estadoAtual = "LOJA";
+      render();
+    };
+    document.getElementById("btn-cancelar-venda")!.onclick = () => {
+      itemParaConfirmarVenda = null;
+      estadoAtual = "LOJA";
+      render();
+    };
     return;
   }
 
@@ -163,7 +290,7 @@ function render() {
           <li><strong>Exploração:</strong> Avance por salas derrotando inimigos. Cada andar contém 9 salas de monstros e 1 sala de Chefe (Sala 10).</li>
           <li><strong>Batalha:</strong> Use Ataques básicos, Habilidades ou Itens do seu inventário. Ficar sem vida significa o fim da run (Permadeath)!</li>
           <li><strong>Level Up:</strong> Ao ganhar XP suficiente e subir de nível, você escolhe uma Habilidade nova e ganha um Ponto de Atributo (Força, Destreza, Inteligência, Defesa ou Sorte).</li>
-          <li><strong>Extração (Fuga):</strong> O jogo foca muito em gerenciamento de risco. Você sempre tem a opção de "Fugir" nas batalhas para tentar voltar ao lobby vivo e levar seu loot (Ouro) intacto. Se você for ganancioso e acabar morrendo, você perde metade de todo o seu ouro!</li>
+          <li><strong>Extração (Fuga):</strong> O jogo foca muito em gerenciamento de risco. Você sempre tem a opção de "Fugir" nas batalhas para tentar voltar ao lobby vivo e levar seu loot (Ouro) intacto. Se você for ganancioso e acabar morrendo, você perde metade de todo o seu ouro e todos os seus itens que você adquiriu na run!</li>
           <li><strong>Baús:</strong> Derrotar o Chefe do andar recompensa você com um Baú (Comum a Único), que pode conter armas poderosas ou itens consumíveis.</li>
           <li><strong>Loja:</strong> Gaste seu ouro no Lobby para desbloquear novas Armas e Consumíveis permanentes para as próximas runs.</li>
         </ul>
@@ -224,7 +351,7 @@ function render() {
 
   if (estadoAtual === "EQUIPAMENTO_INICIAL") {
     let html = `<h2>Escolha sua Arma Inicial</h2><div class="action-buttons" style="flex-direction:column; align-items:center;">`;
-    
+
     jogador.weaponInventory.forEach((arma, idx) => {
       html += `<button class="btn-action" id="btn-eq-ini-${idx}">
         <span class="key-hint">[${idx + 1}]</span> Equipar ${arma.name} (${arma.damage} Dano)
@@ -436,7 +563,7 @@ function menuTrocarArma() {
     menuInventario();
     return;
   }
-  
+
   opcoesAcao = jogador.weaponInventory.map((arma, idx) => ({
     texto: `Equipar ${arma.name} (${arma.damage} Dano)`,
     acao: () => {
@@ -466,14 +593,14 @@ function menuUsarConsumivel() {
         const buff = item.usar(jogador);
         if (buff) jogador.activeBuffs.push(buff);
         jogador.inventory.splice(idx, 1);
-        
+
         // Remove from save dynamically so they can't save scum if they flee after using
         const save = lerSave();
         save.consumiveisExtras = jogador.inventory;
         // Need a function in saveData to just overwrite consumiveis, but we can do it later, this is fine
-        limparConsumiveisExtras(); 
+        limparConsumiveisExtras();
         jogador.inventory.forEach(i => adicionarConsumivelExtra(i));
-        
+
         opcoesAcao = [];
         atualizarLog(`Você usou ${item.name}!`, () => {
           setTimeout(() => turnoInimigo(), 500); // Gasta o turno
@@ -513,16 +640,16 @@ function atacarInimigo(alvoIdx: number) {
   const danoFinal = Math.floor(isCrit ? danoBase * 2 : danoBase);
 
   alvo.life -= danoFinal;
-  
+
   let msg = `Você atacou ${alvo.name} causando ${danoFinal} de dano!`;
   if (isCrit) msg = `⚡ CRÍTICO! ` + msg;
-  
+
   if (alvo.life <= 0) {
     msg += ` ${alvo.name} foi derrotado (+${alvo.goldReward}G)!`;
     jogador.experience += alvo.xpReward;
     jogador.gold += alvo.goldReward;
   }
-  
+
   opcoesAcao = [];
   atualizarLog(msg, () => {
     setTimeout(() => {
@@ -553,7 +680,7 @@ function usarHabilidade(idx: number) {
   // A interface de usar espera console.logs, precisaremos capturar ou ignorar por enquanto
   // e apenas mostrar que a habilidade foi usada.
   const sucesso = habilidade.usar(jogador, inimigosAtuais, 0);
-  
+
   opcoesAcao = [];
   if (sucesso) {
     atualizarLog(`Você usou ${habilidade.nome}!`, () => {
@@ -595,7 +722,7 @@ function turnoInimigo() {
 
   let totalDano = 0;
   jogador.processarBuffs();
-  
+
   inimigosAtuais.forEach(ini => {
     const reducao = Math.min(jogador.defense * 0.005, 0.8);
     let dano = Math.floor(ini.attackPower * (1 - reducao));
@@ -603,31 +730,108 @@ function turnoInimigo() {
     totalDano += dano;
   });
 
-  jogador.life -= totalDano;
   opcoesAcao = [];
-  atualizarLog(`Os inimigos atacam e causam ${totalDano} de dano!`, () => {
-    setTimeout(() => {
-      menuBatalhaPrincipal();
-    }, 500);
-  });
+  render(); // Limpa os botoes antes de mostrar o parry
+
+  showParryBar(
+    () => {
+      // Parry bem sucedido: sem dano
+      atualizarLog(`⚔️ PARRY PERFEITO! Você bloqueou o ataque dos inimigos!`, () => {
+        setTimeout(() => menuBatalhaPrincipal(), 500);
+      });
+    },
+    () => {
+      // Parry falhou: aplica dano
+      jogador.life -= totalDano;
+      atualizarLog(`Os inimigos atacam e causam ${totalDano} de dano!`, () => {
+        setTimeout(() => menuBatalhaPrincipal(), 500);
+      });
+    }
+  );
 }
 
 function vencerBatalha() {
-  const xpGanho = 20 * (andarAtual ** andarAtual) + (salaAtual * salaAtual) * 10;
+  // XP de monstros individuais (enemies.ts) + bônus de sala quadrático
+  const xpBonusSala = (andarAtual * andarAtual * 20) + (salaAtual * andarAtual * 5);
   const goldSala = (andarAtual * 5) + salaAtual;
-  jogador.experience += xpGanho;
+  jogador.experience += xpBonusSala;
   jogador.gold += goldSala;
-  
-  if (jogador.experience >= jogador.experienceToNextLevel) {
-    jogador.levelUp(); // Trata xp, vida, mana e ganha +1 pontoAtributo
-    estadoAtual = "LEVEL_UP_SKILL";
-    escolherNovaSkillLevelUp();
+
+  // Cascata de level-ups: upa quantos níveis for possível de uma vez
+  let nivelUp = 0;
+  while (jogador.experience >= jogador.experienceToNextLevel) {
+    jogador.levelUp();
+    nivelUp++;
+  }
+
+  // BOSS (Sala 10): sempre dá baú
+  if (salaAtual === 10) {
+    const bau = bauDoAndar(andarAtual);
+    const recompensa = abrirBau(bau, jogador);
+    let msgBau = `🏆 Boss derrotado! Você recebeu um ${bau.nome}!\n`;
+
+    if (recompensa.tipo === "arma") {
+      jogador.weaponInventory.push(recompensa.item);
+      msgBau += `⚔️ Arma encontrada: ${recompensa.item.name} (${recompensa.item.raridade})`;
+    } else {
+      jogador.inventory.push(recompensa.item.name);
+      msgBau += `🧪 Consumível encontrado: ${recompensa.item.name}`;
+    }
+
+    if (nivelUp > 0) {
+      estadoAtual = "LEVEL_UP_SKILL";
+      atualizarLog(msgBau, () => {
+        setTimeout(() => escolherNovaSkillLevelUp(), 800);
+      });
+    } else {
+      estadoAtual = "EXPLORACAO";
+      opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+      atualizarLog(msgBau);
+    }
     return;
   }
 
-  estadoAtual = "EXPLORACAO";
-  opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
-  atualizarLog(`Batalha vencida! Você ganhou ${xpGanho} XP e ${goldSala}G.`);
+  // SALA COMUM (1–9): chance de drop aleatório
+  // Chance de consumível: 25% | Chance de item/arma: escala com o andar (5% no andar 1 até 20% no andar 10)
+  const chanceConsumivel = 0.25;
+  const chanceArma = 0.05 + (andarAtual * 0.015); // 5% andar 1 → ~20% andar 10
+  const roll = Math.random();
+
+  let msgSala = `Batalha vencida! +${xpBonusSala} XP e +${goldSala}G.`;
+
+  if (roll < chanceArma) {
+    // Drop de arma: raridade escala com o andar
+    const raridadesPossiveis: Array<"COMUM" | "RARA" | "EPICA"> =
+      andarAtual <= 3 ? ["COMUM"] :
+      andarAtual <= 6 ? ["COMUM", "RARA"] :
+      ["COMUM", "RARA", "EPICA"];
+    const raridadeEscolhida = raridadesPossiveis[Math.floor(Math.random() * raridadesPossiveis.length)]!;
+    const armasFiltradas = Object.values(listaArmas).filter(
+      a => a.raridade === raridadeEscolhida && a.name !== "Espada Quebrada"
+    );
+    if (armasFiltradas.length > 0) {
+      const armaDropada = armasFiltradas[Math.floor(Math.random() * armasFiltradas.length)]!;
+      jogador.weaponInventory.push(armaDropada);
+      msgSala += `\n⚔️ Item encontrado: ${armaDropada.name} (${armaDropada.raridade})!`;
+    }
+  } else if (roll < chanceArma + chanceConsumivel) {
+    // Drop de consumível
+    const consumiveis = Object.values(listaConsumiveis);
+    const consDropado = consumiveis[Math.floor(Math.random() * consumiveis.length)]!;
+    jogador.inventory.push(consDropado.name);
+    msgSala += `\n🧪 Consumível encontrado: ${consDropado.name}!`;
+  }
+
+  if (nivelUp > 0) {
+    estadoAtual = "LEVEL_UP_SKILL";
+    atualizarLog(msgSala, () => {
+      setTimeout(() => escolherNovaSkillLevelUp(), 800);
+    });
+  } else {
+    estadoAtual = "EXPLORACAO";
+    opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+    atualizarLog(msgSala);
+  }
 }
 
 function escolherNovaSkillLevelUp() {
