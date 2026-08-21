@@ -245,6 +245,74 @@ export class CortesFan implements Habilidade {
 }
 
 
+export class FuriaDescontrolada implements Habilidade {
+  nome = "Fúria Descontrolada";
+  descricao = "Usa 100 Energia. Todo este combate, seus ataques causam crítico garantido. No próximo combate, perde o 1º turno e causa -15% de dano.";
+  tipo = "ATIVA" as const;
+  raridade = "LENDARIA" as const;
+  custoEnergia = 100;
+  usar(jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean {
+    if (jogador.energy < this.custoEnergia) {
+      console.log(chalk.blue(`Você não tem Energia suficiente! (Necessário: ${this.custoEnergia})`));
+      return false;
+    }
+    jogador.energy -= this.custoEnergia;
+    // A ativação real é via flag no Controller (furiaDescontroladaAtiva)
+    // A habilidade sinaliza isso via buff temporário de nome especial
+    jogador.activeBuffs.push({
+      name: "Fúria Descontrolada",
+      duration: 9999, // dura o combate inteiro; removido manualmente ao vencer/perder
+      onExpire: (_j: mainCharacter) => {
+        console.log(chalk.yellowBright("[Fúria Descontrolada] A fúria se apagou."));
+      }
+    });
+    console.log(chalk.redBright("🔥 FÚria DESCONTROLADA! Crítico garantido este combate! Mas você irá pagar um preço..."));
+    return true;
+  }
+}
+
+export class CancaoEnlouquecedora implements Habilidade {
+  nome = "Canção Enlouquecedora";
+  descricao = "Usa 80 Mana. Faz os inimigos se atacarem mutuamente com seu próprio dano — escala com Sorte e Inteligência.";
+  tipo = "ATIVA" as const;
+  raridade = "EPICA" as const;
+  custoMana = 80;
+  usar(jogador: mainCharacter, inimigos: enemy[], _alvo: number): boolean {
+    if (jogador.mana < this.custoMana) {
+      console.log(chalk.blue(`Você não tem Mana suficiente! (Necessário: ${this.custoMana})`));
+      return false;
+    }
+    jogador.mana -= this.custoMana;
+
+    // Escalonamento com Sorte e Inteligência: cada atributo adiciona um multiplicador extra
+    const bonusLuck = 1 + Math.floor(jogador.luck * 0.03 * 100) / 100;
+    const bonusInt = 1 + Math.floor(jogador.intelligence * 0.02 * 100) / 100;
+    const multiplicador = bonusLuck * bonusInt;
+
+    const vivos = inimigos.filter(i => i.life > 0);
+    let log = `🎶 Canção Enlouquecedora! Os inimigos enlouquecem e se atacam! (x${multiplicador.toFixed(2)} dano)`;
+
+    if (vivos.length === 1) {
+      // Só um inimigo: ataca a si mesmo
+      const dano = Math.floor(vivos[0]!.attackPower * multiplicador);
+      vivos[0]!.life -= dano;
+      log += `\n${vivos[0]!.name} ataca a si mesmo! (${dano} de dano)`;
+    } else {
+      // Cada inimigo ataca o próximo na lista (circular)
+      for (let i = 0; i < vivos.length; i++) {
+        const atacante = vivos[i]!;
+        const alvo = vivos[(i + 1) % vivos.length]!;
+        const dano = Math.floor(atacante.attackPower * multiplicador);
+        alvo.life -= dano;
+        log += `\n${atacante.name} ataca ${alvo.name}! (${dano} de dano)`;
+      }
+    }
+
+    console.log(chalk.magentaBright(log));
+    return true;
+  }
+}
+
 export const TODAS_HABILIDADES: Habilidade[] = [
   new GolpeForte(),
   new BolaDeFogo(),
@@ -255,6 +323,8 @@ export const TODAS_HABILIDADES: Habilidade[] = [
   new RaioNegro(),
   new Velocidade(),
   new CortesFan(),
+  new FuriaDescontrolada(),
+  new CancaoEnlouquecedora(),
 ];
 
 // 5. O ALGORITMO DE SORTEIO (GACHA)

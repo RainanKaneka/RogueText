@@ -42,6 +42,9 @@ let opcoesAcao: { texto: string, acao: () => void, descricao?: string }[] = [];
 let lojaAba: "comprar" | "vender" = "comprar";
 let itemParaConfirmarVenda: { tipo: "arma" | "consumivel"; nome: string; raridade: string; preco: number } | null = null;
 let raioNegroStack: number = 0; // Stack dinâmico de crit da passiva Raio Negro
+let furiaPenalidade: boolean = false;    // Próximo combate terá penalidade
+let furiaPenalidadeAtiva: boolean = false; // Penalidade ativa no combate atual
+let furiaSkipouPrimeiroTurno: boolean = false; // Já pulou o 1º turno deste combate
 
 // Preços de revenda por raridade (em ouro)
 const PRECO_REVENDA: Record<string, number> = {
@@ -515,6 +518,9 @@ function iniciarNovaRun() {
   });
   raioNegroStack = 0;
   setParryWindowBonus(0);
+  furiaPenalidade = false;
+  furiaPenalidadeAtiva = false;
+  furiaSkipouPrimeiroTurno = false;
   andarAtual = 1;
   salaAtual = 0;
   estadoAtual = "SELECAO_CLASSE";
@@ -557,6 +563,17 @@ function gerarInimigos() {
     }
   }
   estadoAtual = "BATALHA";
+
+  // Fúria Descontrolada: se havia penalidade, ativa agora
+  if (furiaPenalidade) {
+    furiaPenalidadeAtiva = true;
+    furiaPenalidade = false;
+    furiaSkipouPrimeiroTurno = false;
+  } else {
+    furiaPenalidadeAtiva = false;
+    furiaSkipouPrimeiroTurno = false;
+  }
+
   menuBatalhaPrincipal();
 }
 
@@ -569,6 +586,10 @@ function menuBatalhaPrincipal() {
     adicionarGold(goldGanho);
     limparArmasExtras();
     limparConsumiveisExtras();
+    // Limpa buff da Fúria se o player morrer
+    jogador.activeBuffs = jogador.activeBuffs.filter(b => b.name !== "Fúria Descontrolada");
+    furiaPenalidade = false;
+    furiaPenalidadeAtiva = false;
     atualizarLog(`Você foi derrotado! Você extraiu ${goldGanho}G (Perdeu ${goldPerdido}G) e perdeu seus itens!`);
     playMusic("title");
     return;
@@ -580,12 +601,26 @@ function menuBatalhaPrincipal() {
     return;
   }
 
+  // Fúria Descontrolada: pula o primeiro turno do jogador no combate penalizado
+  if (furiaPenalidadeAtiva && !furiaSkipouPrimeiroTurno) {
+    furiaSkipouPrimeiroTurno = true;
+    atualizarLog("💢 A exaustão da Fúria Descontrolada te impede de agir no primeiro turno!", () => {
+      setTimeout(() => turnoInimigo(), 800);
+    });
+    return;
+  }
+
+  let avisos = "";
+  if (furiaPenalidadeAtiva) avisos += " \u26a0️ -15% dano (ressaca da Fúria)";
+  if (jogador.activeBuffs.some(b => b.name === "Fúria Descontrolada")) avisos += " 🔥 CRÍTICO GARANTIDO";
+
   opcoesAcao = [
     { texto: "Atacar", acao: () => escolherAlvoAtaque() },
     { texto: "Habilidades", acao: () => menuHabilidades() },
     { texto: "Inventário", acao: () => menuInventario() },
     { texto: "Fugir", acao: () => confirmarFuga() }
   ];
+  if (avisos) atualizarLog(avisos);
   render();
 }
 
@@ -676,7 +711,10 @@ function escolherAlvoAtaque() {
 
 function atacarInimigo(alvoIdx: number) {
   const alvo = inimigosAtuais[alvoIdx]!;
-  const danoBase = jogador.danoComArma();
+  let danoBase = jogador.danoComArma();
+
+  // Fúria Descontrolada penalidade: -15% dano
+  if (furiaPenalidadeAtiva) danoBase = Math.floor(danoBase * 0.85);
 
   // Raio Negro: bônus de crit acumulado (passiva épica)
   const temRaioNegro = jogador.skills.some(s => s.nome === "Raio Negro");
@@ -684,23 +722,27 @@ function atacarInimigo(alvoIdx: number) {
   const critRaioNegro = temRaioNegro ? 0.05 + (raioNegroStack * 0.10) : 0;
   const critTotal = Math.min(0.65, critBase + critRaioNegro);
 
-  const isCrit = Math.random() < critTotal;
+  // Fúria Descontrolada: crítico garantido neste combate
+  const furiaAtivaNow = jogador.activeBuffs.some(b => b.name === "Fúria Descontrolada");
+  const isCrit = furiaAtivaNow || Math.random() < critTotal;
   const danoFinal = Math.floor(isCrit ? danoBase * 2 : danoBase);
 
   // Atualiza stack do Raio Negro
   if (temRaioNegro) {
     if (isCrit) {
-      raioNegroStack = Math.min(raioNegroStack + 1, 6); // máx 6 stacks = +60% (teto é 65% total)
+      raioNegroStack = Math.min(raioNegroStack + 1, 6);
     } else {
-      raioNegroStack = 0; // errou, reseta
+      raioNegroStack = 0;
     }
   }
 
   alvo.life -= danoFinal;
 
   let msg = `Você atacou ${alvo.name} causando ${danoFinal} de dano!`;
-  if (isCrit) msg = `⚡ CRÍTICO! ` + msg;
+  if (furiaAtivaNow && isCrit) msg = `🔥 CRÍTICO (FÚria)! ` + msg;
+  else if (isCrit) msg = `⚡ CRÍTICO! ` + msg;
   if (temRaioNegro && isCrit) msg += ` (Raio Negro: ${(critTotal * 100).toFixed(0)}% crit — streak ${raioNegroStack})`;
+  if (furiaPenalidadeAtiva) msg += ` [ressaca -15% dano]`;
 
   if (alvo.life <= 0) {
     msg += ` ${alvo.name} foi derrotado (+${alvo.goldReward}G)!`;
@@ -813,6 +855,13 @@ function turnoInimigo() {
 }
 
 function vencerBatalha() {
+  // Fúria Descontrolada: se estava ativa, ativar penalidade pro próximo combate
+  const furiaEraAtiva = jogador.activeBuffs.some(b => b.name === "Fúria Descontrolada");
+  if (furiaEraAtiva) {
+    jogador.activeBuffs = jogador.activeBuffs.filter(b => b.name !== "Fúria Descontrolada");
+    furiaPenalidade = true;
+  }
+
   // XP de monstros individuais (enemies.ts) + bônus de sala quadrático
   const xpBonusSala = (andarAtual * andarAtual * 20) + (salaAtual * andarAtual * 5);
   const goldSala = (andarAtual * 5) + salaAtual;
