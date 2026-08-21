@@ -16,9 +16,9 @@ Durante a batalha, você pode usar:
 - **Atacar**: Usa sua Arma equipada (ou o próprio punho, se estiver sem). Armas possuem chance de Crítico e ganham dano bônus de atributos com base no seu escalonamento (S, A, B, C, D).
 - **Habilidades**: Magias e poderes ativos que consomem Mana (MP) ou Energia. Elas podem escalar com atributos específicos (ex: uma habilidade pode escalar com Inteligência, enquanto um ataque físico pesado pode escalar com Força).
 - **Inventário**: Mostra consumíveis que curam sua Vida ou Mana/Energia.
-- **Fugir**: Tenta voltar para o lobby imediatamente com tudo o que conseguiu coletar, para evitar perder suas riquezas ao morrer! (Chance de falha).
+- **Fugir (Extração)**: O jogo foca muito em gerenciamento de risco. Você sempre tem a opção de "Fugir" nas batalhas para tentar extrair e voltar ao lobby vivo, levando seu loot (Ouro) intacto. (Chance de falha).
 
-### Permadeath e Economia (Ouro)
+### Permadeath, Extração e Economia (Ouro)
 Se a vida do seu personagem chegar a 0, a *run* acaba.
 - Quando você morre, você **perde metade do ouro** coletado na run.
 - Você pode comprar e desbloquear **Armas e Consumíveis permanentes** na Loja do Lobby usando o ouro guardado! 

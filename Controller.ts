@@ -156,19 +156,20 @@ function render() {
       <div class="hud-container" style="text-align: left; max-width: 600px; margin: 0 auto; color: #ddd; font-family: 'Geist Pixel', monospace; font-size: 1.1rem; line-height: 1.5;">
         <h2 class="hud-title" style="text-align: center; font-size: 2rem;">Sobre o RogueText</h2>
         
-        <p><strong>RogueText</strong> é um jogo RPG Roguelite baseado em turnos inspirado em clássicos de exploração de masmorras.</p>
+        <p><strong>RogueText</strong> é um jogo RPG Roguelite baseado em turnos inspirado em clássicos de exploração de masmorras com foco no sistema de extração.</p>
         
         <h3 style="color: var(--accent-color); margin-top: 20px;">Como Jogar</h3>
         <ul>
           <li><strong>Exploração:</strong> Avance por salas derrotando inimigos. Cada andar contém 9 salas de monstros e 1 sala de Chefe (Sala 10).</li>
           <li><strong>Batalha:</strong> Use Ataques básicos, Habilidades ou Itens do seu inventário. Ficar sem vida significa o fim da run (Permadeath)!</li>
           <li><strong>Level Up:</strong> Ao ganhar XP suficiente e subir de nível, você escolhe uma Habilidade nova e ganha um Ponto de Atributo (Força, Destreza, Inteligência, Defesa ou Sorte).</li>
-          <li><strong>Baús:</strong> Derrotar o Chefe do andar recompensa você com um Baú, que pode conter armas poderosas ou itens consumíveis, de Comum a Único.</li>
-          <li><strong>Ouro:</strong> Extraia ouro vivo para gastar na Loja no Lobby e desbloquear novas Armas e Consumíveis permanentes para as próximas runs. (Se morrer, perde metade!)</li>
+          <li><strong>Extração (Fuga):</strong> O jogo foca muito em gerenciamento de risco. Você sempre tem a opção de "Fugir" nas batalhas para tentar voltar ao lobby vivo e levar seu loot (Ouro) intacto. Se você for ganancioso e acabar morrendo, você perde metade de todo o seu ouro!</li>
+          <li><strong>Baús:</strong> Derrotar o Chefe do andar recompensa você com um Baú (Comum a Único), que pode conter armas poderosas ou itens consumíveis.</li>
+          <li><strong>Loja:</strong> Gaste seu ouro no Lobby para desbloquear novas Armas e Consumíveis permanentes para as próximas runs.</li>
         </ul>
         
         <h3 style="color: var(--accent-color); margin-top: 20px;">Dicas</h3>
-        <p>Habilidades escalam com diferentes atributos. Leia as descrições passando o mouse (ou segurando o toque) sobre elas!</p>
+        <p>Habilidades escalam com diferentes atributos. Leia as descrições passando o mouse sobre elas. E lembre-se: saber a hora de parar e extrair é o segredo do sucesso!</p>
         
         <div style="text-align: center; margin-top: 30px;">
           <button class="btn-lobby" id="btn-voltar-lobby">Voltar ao Lobby</button>
