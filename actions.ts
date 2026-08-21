@@ -313,6 +313,17 @@ export class CancaoEnlouquecedora implements Habilidade {
   }
 }
 
+export class Evasivo implements Habilidade {
+  nome = "Evasivo";
+  descricao = "Passiva Rara. Mesmo errando o Parry, você tem chance de desviar do ataque — escala com Destreza (DEX), máx 40%.";
+  tipo = "PASSIVA" as const;
+  raridade = "RARA" as const;
+  // A lógica de esquiva é aplicada no callback de falha do parry no Controller
+  usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean {
+    return true; // Passiva, não tem uso ativo
+  }
+}
+
 export const TODAS_HABILIDADES: Habilidade[] = [
   new GolpeForte(),
   new BolaDeFogo(),
@@ -325,6 +336,7 @@ export const TODAS_HABILIDADES: Habilidade[] = [
   new CortesFan(),
   new FuriaDescontrolada(),
   new CancaoEnlouquecedora(),
+  new Evasivo(),
 ];
 
 // 5. O ALGORITMO DE SORTEIO (GACHA)

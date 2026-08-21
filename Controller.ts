@@ -845,7 +845,19 @@ function turnoInimigo() {
       });
     },
     () => {
-      // Parry falhou: aplica dano
+      // Parry falhou: verifica Evasivo (passiva de esquiva)
+      const temEvasivo = jogador.skills.some(s => s.nome === "Evasivo");
+      if (temEvasivo) {
+        // Chance de esquiva: base 5% + (DEX * 1.75%), teto de 40%
+        const chanceEsquiva = Math.min(0.40, 0.05 + jogador.dexterity * 0.0175);
+        if (Math.random() < chanceEsquiva) {
+          atualizarLog(`💨 Evasivo! Você desviou do ataque por um fio! (${(chanceEsquiva * 100).toFixed(0)}% esquiva)`, () => {
+            setTimeout(() => menuBatalhaPrincipal(), 500);
+          });
+          return;
+        }
+      }
+      // Sem esquiva: aplica dano normalmente
       jogador.life -= totalDano;
       atualizarLog(`Os inimigos atacam e causam ${totalDano} de dano!`, () => {
         setTimeout(() => menuBatalhaPrincipal(), 500);
