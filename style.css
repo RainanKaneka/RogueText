@@ -171,4 +171,38 @@ body {
 .text-blue { color: #339af0; }
 .text-magenta { color: #f06595; }
 .text-cyan { color: #22b8cf; }
+.text-cyan { color: #22b8cf; }
 .text-gray { color: #adb5bd; }
+
+/* TOOLTIPS PARA BOTÕES */
+.btn-action-container {
+  position: relative;
+  display: flex;
+}
+
+.btn-action-container .btn-action {
+  width: 100%;
+}
+
+.btn-tooltip {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #222;
+  color: #ddd;
+  padding: 10px;
+  border: 1px solid var(--accent-color);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  width: max-content;
+  max-width: 250px;
+  z-index: 10;
+  margin-top: 5px;
+  text-align: left;
+}
+
+.btn-action-container:hover .btn-tooltip {
+  display: block;
+}

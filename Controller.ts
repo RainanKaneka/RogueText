@@ -37,7 +37,7 @@ let inimigosAtuais: enemy[] = [];
 let andarAtual: number = 1;
 let salaAtual: number = 0;
 let logMensagem: string = "Bem-vindo ao RogueText!";
-let opcoesAcao: { texto: string, acao: () => void }[] = [];
+let opcoesAcao: { texto: string, acao: () => void, descricao?: string }[] = [];
 
 // Funções de UI
 const app = document.getElementById("game-container")!;
@@ -79,9 +79,11 @@ function render() {
       <div style="display:flex; flex-direction:column; gap:10px;">
         <button class="btn-lobby" id="btn-nova-run">Nova Run</button>
         <button class="btn-lobby" id="btn-loja">Loja</button>
+        <button class="btn-lobby" id="btn-sobre">Sobre o Jogo</button>
       </div>`;
     document.getElementById("btn-nova-run")!.onclick = () => iniciarNovaRun();
     document.getElementById("btn-loja")!.onclick = () => { estadoAtual = "LOJA"; render(); };
+    document.getElementById("btn-sobre")!.onclick = () => { estadoAtual = "SOBRE"; render(); };
     playMusic("title");
     return;
   }
@@ -146,6 +148,34 @@ function render() {
     });
 
     document.getElementById("btn-loja-voltar")!.onclick = () => { estadoAtual = "LOBBY"; render(); };
+    return;
+  }
+
+  if (estadoAtual === "SOBRE") {
+    app.innerHTML = `
+      <div class="hud-container" style="text-align: left; max-width: 600px; margin: 0 auto; color: #ddd; font-family: 'Geist Pixel', monospace; font-size: 1.1rem; line-height: 1.5;">
+        <h2 class="hud-title" style="text-align: center; font-size: 2rem;">Sobre o RogueText</h2>
+        
+        <p><strong>RogueText</strong> é um jogo RPG Roguelite baseado em turnos inspirado em clássicos de exploração de masmorras.</p>
+        
+        <h3 style="color: var(--accent-color); margin-top: 20px;">Como Jogar</h3>
+        <ul>
+          <li><strong>Exploração:</strong> Avance por salas derrotando inimigos. Cada andar contém 9 salas de monstros e 1 sala de Chefe (Sala 10).</li>
+          <li><strong>Batalha:</strong> Use Ataques básicos, Habilidades ou Itens do seu inventário. Ficar sem vida significa o fim da run (Permadeath)!</li>
+          <li><strong>Level Up:</strong> Ao ganhar XP suficiente e subir de nível, você escolhe uma Habilidade nova e ganha um Ponto de Atributo (Força, Destreza, Inteligência, Defesa ou Sorte).</li>
+          <li><strong>Baús:</strong> Derrotar o Chefe do andar recompensa você com um Baú, que pode conter armas poderosas ou itens consumíveis, de Comum a Único.</li>
+          <li><strong>Ouro:</strong> Extraia ouro vivo para gastar na Loja no Lobby e desbloquear novas Armas e Consumíveis permanentes para as próximas runs. (Se morrer, perde metade!)</li>
+        </ul>
+        
+        <h3 style="color: var(--accent-color); margin-top: 20px;">Dicas</h3>
+        <p>Habilidades escalam com diferentes atributos. Leia as descrições passando o mouse (ou segurando o toque) sobre elas!</p>
+        
+        <div style="text-align: center; margin-top: 30px;">
+          <button class="btn-lobby" id="btn-voltar-lobby">Voltar ao Lobby</button>
+        </div>
+      </div>
+    `;
+    document.getElementById("btn-voltar-lobby")!.onclick = () => { estadoAtual = "LOBBY"; render(); };
     return;
   }
 
@@ -281,9 +311,12 @@ function render() {
   // Botões de Ação
   htmlHUD += `<div class="action-buttons">`;
   opcoesAcao.forEach((opcao, idx) => {
-    htmlHUD += `<button class="btn-action" id="btn-acao-${idx}">
-      <span class="key-hint">[${idx + 1}]</span> ${opcao.texto}
-    </button>`;
+    htmlHUD += `<div class="btn-action-container">
+      <button class="btn-action" id="btn-acao-${idx}">
+        <span class="key-hint">[${idx + 1}]</span> ${opcao.texto}
+      </button>
+      ${opcao.descricao ? `<div class="btn-tooltip">${opcao.descricao}</div>` : ""}
+    </div>`;
   });
   htmlHUD += `</div>`;
 
@@ -506,6 +539,7 @@ function menuHabilidades() {
 
   opcoesAcao = jogador.skills.map((skill, idx) => ({
     texto: `${skill.nome} (${skill.tipo})`,
+    descricao: skill.descricao,
     acao: () => usarHabilidade(idx)
   }));
   opcoesAcao.push({ texto: "Voltar", acao: () => menuBatalhaPrincipal() });
@@ -606,6 +640,7 @@ function escolherNovaSkillLevelUp() {
   atualizarLog("LEVEL UP! Escolha uma nova habilidade:");
   opcoesAcao = opcoes.map(op => ({
     texto: `${op.nome} (${op.raridade})`,
+    descricao: op.descricao,
     acao: () => {
       jogador.skills.push(op);
       irParaAlocacaoDeAtributo();
