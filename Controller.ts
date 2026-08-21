@@ -135,36 +135,41 @@ function render() {
       // Aba de Venda
       html += `<div class="action-buttons" style="flex-direction:column;">`;
 
-      // Jogador só existe durante uma run
-      if (!jogador) {
-        html += `<p style="color:#aaa; text-align:center; margin-top:20px;">Você só pode vender itens durante uma run.<br>Inicie uma run e volte aqui para vender!</p>`;
-      } else {
-        const armasParaVender = jogador.weaponInventory.filter(a => a.name !== "Espada Quebrada");
-        if (armasParaVender.length > 0) {
-          html += `<h3>Armas no Inventário</h3>`;
-          armasParaVender.forEach((arma, idx) => {
-            const precoVenda = PRECO_REVENDA[arma.raridade] ?? 50;
-            const isEquipada = jogador.equippedWeapon?.name === arma.name;
-            if (isEquipada) {
-              html += `<button class="btn-action" disabled style="opacity:0.5;">${arma.name} (${arma.raridade}) — Equipada</button>`;
-            } else {
-              html += `<button class="btn-action" id="btn-vender-arma-${idx}" style="border-color:#c92a2a;">${arma.name} (${arma.raridade}) — Vender por ${precoVenda}G</button>`;
-            }
-          });
-        } else {
-          html += `<p style="color:#aaa;">Nenhuma arma para vender.</p>`;
-        }
+      let armasVenda: typeof jogador.weaponInventory = [];
+      let consVenda: string[] = [];
 
-        if (jogador.inventory.length > 0) {
-          html += `<h3 style="margin-top:12px;">Consumíveis</h3>`;
-          const inventarioUnico = [...new Set(jogador.inventory)];
-          inventarioUnico.forEach((nomeItem, idx) => {
-            const qtd = jogador.inventory.filter(i => i === nomeItem).length;
-            html += `<button class="btn-action" id="btn-vender-cons-${idx}" style="border-color:#c92a2a;">${nomeItem} (x${qtd}) — Vender 1 por 40G</button>`;
-          });
-        } else {
-          html += `<p style="color:#aaa;">Nenhum consumível para vender.</p>`;
-        }
+      if (jogador) {
+        armasVenda = jogador.weaponInventory.filter(a => a.name !== "Espada Quebrada");
+        consVenda = jogador.inventory;
+      } else {
+        armasVenda = save.armasExtras.map(nome => listaArmas[nome]).filter(a => a !== undefined) as typeof jogador.weaponInventory;
+        consVenda = save.consumiveisExtras;
+      }
+
+      if (armasVenda.length > 0) {
+        html += `<h3>Armas no Inventário</h3>`;
+        armasVenda.forEach((arma, idx) => {
+          const precoVenda = PRECO_REVENDA[arma.raridade] ?? 50;
+          const isEquipada = jogador ? jogador.equippedWeapon?.name === arma.name : false;
+          if (isEquipada) {
+            html += `<button class="btn-action" disabled style="opacity:0.5;">${arma.name} (${arma.raridade}) — Equipada</button>`;
+          } else {
+            html += `<button class="btn-action" id="btn-vender-arma-${idx}" style="border-color:#c92a2a;">${arma.name} (${arma.raridade}) — Vender por ${precoVenda}G</button>`;
+          }
+        });
+      } else {
+        html += `<p style="color:#aaa;">Nenhuma arma para vender.</p>`;
+      }
+
+      if (consVenda.length > 0) {
+        html += `<h3 style="margin-top:12px;">Consumíveis</h3>`;
+        const inventarioUnico = [...new Set(consVenda)];
+        inventarioUnico.forEach((nomeItem, idx) => {
+          const qtd = consVenda.filter(i => i === nomeItem).length;
+          html += `<button class="btn-action" id="btn-vender-cons-${idx}" style="border-color:#c92a2a;">${nomeItem} (x${qtd}) — Vender 1 por 40G</button>`;
+        });
+      } else {
+        html += `<p style="color:#aaa;">Nenhum consumível para vender.</p>`;
       }
 
       html += `</div>`;
@@ -203,37 +208,58 @@ function render() {
         };
       });
     } else {
-      // Listeners — Venda (só existe se jogador estiver ativo)
+      // Listeners — Venda
+      let armasVenda: typeof jogador.weaponInventory = [];
+      let consVenda: string[] = [];
+
       if (jogador) {
-        const armasParaVender = jogador.weaponInventory.filter(a => a.name !== "Espada Quebrada");
-        armasParaVender.forEach((arma, idx) => {
-          const isEquipada = jogador.equippedWeapon?.name === arma.name;
-          if (!isEquipada) {
-            document.getElementById(`btn-vender-arma-${idx}`)!.onclick = () => {
-              const precoVenda = PRECO_REVENDA[arma.raridade] ?? 50;
-              const raridadesAlta = ["EPICA", "LENDARIA", "UNICA"];
-              if (raridadesAlta.includes(arma.raridade)) {
-                itemParaConfirmarVenda = { tipo: "arma", nome: arma.name, raridade: arma.raridade, preco: precoVenda };
-                estadoAtual = "CONFIRMAR_VENDA";
-                render();
-              } else {
+        armasVenda = jogador.weaponInventory.filter(a => a.name !== "Espada Quebrada");
+        consVenda = jogador.inventory;
+      } else {
+        armasVenda = save.armasExtras.map(nome => listaArmas[nome]).filter(a => a !== undefined) as typeof jogador.weaponInventory;
+        consVenda = save.consumiveisExtras;
+      }
+
+      armasVenda.forEach((arma, idx) => {
+        const isEquipada = jogador ? jogador.equippedWeapon?.name === arma.name : false;
+        if (!isEquipada) {
+          document.getElementById(`btn-vender-arma-${idx}`)!.onclick = () => {
+            const precoVenda = PRECO_REVENDA[arma.raridade] ?? 50;
+            const raridadesAlta = ["EPICA", "LENDARIA", "UNICA"];
+            if (raridadesAlta.includes(arma.raridade)) {
+              itemParaConfirmarVenda = { tipo: "arma", nome: arma.name, raridade: arma.raridade, preco: precoVenda };
+              estadoAtual = "CONFIRMAR_VENDA";
+              render();
+            } else {
+              if (jogador) {
                 jogador.weaponInventory = jogador.weaponInventory.filter((_, i) => i !== jogador.weaponInventory.indexOf(arma));
-                adicionarGold(precoVenda);
-                render();
+              } else {
+                const i = save.armasExtras.indexOf(arma.name);
+                if (i !== -1) save.armasExtras.splice(i, 1);
+                salvarSave(save);
               }
-            };
-          }
-        });
-        const inventarioUnico = [...new Set(jogador.inventory)];
-        inventarioUnico.forEach((nomeItem, idx) => {
-          document.getElementById(`btn-vender-cons-${idx}`)!.onclick = () => {
+              adicionarGold(precoVenda);
+              render();
+            }
+          };
+        }
+      });
+
+      const inventarioUnico = [...new Set(consVenda)];
+      inventarioUnico.forEach((nomeItem, idx) => {
+        document.getElementById(`btn-vender-cons-${idx}`)!.onclick = () => {
+          if (jogador) {
             const i = jogador.inventory.indexOf(nomeItem);
             if (i !== -1) jogador.inventory.splice(i, 1);
-            adicionarGold(40);
-            render();
-          };
-        });
-      }
+          } else {
+            const i = save.consumiveisExtras.indexOf(nomeItem);
+            if (i !== -1) save.consumiveisExtras.splice(i, 1);
+            salvarSave(save);
+          }
+          adicionarGold(40);
+          render();
+        };
+      });
     }
 
     document.getElementById("btn-loja-voltar")!.onclick = () => { lojaAba = "comprar"; estadoAtual = "LOBBY"; render(); };
@@ -256,14 +282,26 @@ function render() {
       </div>
     `;
     document.getElementById("btn-confirmar-venda")!.onclick = () => {
-      if (item.tipo === "arma") {
-        jogador.weaponInventory = jogador.weaponInventory.filter(a => a.name !== item.nome);
-        if (jogador.equippedWeapon?.name === item.nome) {
-          jogador.equippedWeapon = jogador.weaponInventory[0] ?? listaArmas["Espada Quebrada"]!;
+      if (jogador) {
+        if (item.tipo === "arma") {
+          jogador.weaponInventory = jogador.weaponInventory.filter(a => a.name !== item.nome);
+          if (jogador.equippedWeapon?.name === item.nome) {
+            jogador.equippedWeapon = jogador.weaponInventory[0] ?? listaArmas["Espada Quebrada"]!;
+          }
+        } else {
+          const i = jogador.inventory.indexOf(item.nome);
+          if (i !== -1) jogador.inventory.splice(i, 1);
         }
       } else {
-        const i = jogador.inventory.indexOf(item.nome);
-        if (i !== -1) jogador.inventory.splice(i, 1);
+        const save = lerSave();
+        if (item.tipo === "arma") {
+          const i = save.armasExtras.indexOf(item.nome);
+          if (i !== -1) save.armasExtras.splice(i, 1);
+        } else {
+          const i = save.consumiveisExtras.indexOf(item.nome);
+          if (i !== -1) save.consumiveisExtras.splice(i, 1);
+        }
+        salvarSave(save);
       }
       adicionarGold(item.preco);
       itemParaConfirmarVenda = null;
