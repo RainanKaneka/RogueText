@@ -50,6 +50,14 @@ export const listaClasses: IClasse[] = [
     armaInicial: 'Adaga',
     passivas: [],
   },
+  {
+    nome: 'Bardo',
+    descricao: 'Um bardo versátil. Alta Destreza e Sorte garantem críticos frequentes.',
+    andarDesbloqueio: 5,
+    atributos: { strength: 1, dexterity: 2, intelligence: 2, luck: 4, defense: 0 },
+    armaInicial: 'Adaga',
+    passivas: [],
+  },
 ];
 
 // =====================================================================

@@ -29,6 +29,7 @@ export interface IWeapons {
     strength: ScalingGrade;
     dexterity: ScalingGrade;
     intelligence: ScalingGrade;
+    luck?: ScalingGrade;
   };
   calcularDano: (jogador: mainCharacter) => number;
 }
@@ -44,10 +45,12 @@ const SCALING_MULT: Record<ScalingGrade, number> = {
 };
 
 const calcDano = (arma: Pick<IWeapons, "damage" | "scaling">, jogador: mainCharacter): number => {
+  const luckScaling = arma.scaling.luck ? SCALING_MULT[arma.scaling.luck] : 0;
   const bonus =
     Math.floor((((jogador.strength ** 2) + (jogador.strength ** 2)) * jogador.strength / 3) * SCALING_MULT[arma.scaling.strength]) +
     Math.floor(((jogador.dexterity ** 2) + (jogador.dexterity ** 2)) * jogador.dexterity / 3 * SCALING_MULT[arma.scaling.dexterity]) +
-    Math.floor(((jogador.intelligence ** 2) + (jogador.intelligence ** 2)) * jogador.intelligence / 3 * SCALING_MULT[arma.scaling.intelligence]);
+    Math.floor(((jogador.intelligence ** 2) + (jogador.intelligence ** 2)) * jogador.intelligence / 3 * SCALING_MULT[arma.scaling.intelligence]) +
+    Math.floor(((jogador.luck ** 2) + (jogador.luck ** 2)) * jogador.luck / 3 * luckScaling);
   return arma.damage + bonus;
 };
 
@@ -96,6 +99,17 @@ export const listaArmas: Record<string, IWeapons> = {
     scaling: { strength: "-", dexterity: "D", intelligence: "C" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
+  "Trompete do Bardo": {
+    name: "Trompete do Bardo",
+    description: "Um trompete arcano. Escala com sorte.",
+    habilidade: undefined,
+    raridade: "COMUM",
+    price: 250,
+    damage: 20,
+    levelRequired: 2,
+    scaling: { strength: "-", dexterity: "D", luck: "C" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
   "Cajado do Aprendiz": {
     name: "Cajado do Aprendiz",
     description: "Um cajado típico de iniciantes na magia.",
@@ -104,8 +118,8 @@ export const listaArmas: Record<string, IWeapons> = {
     price: 1500,
     damage: 28,
     levelRequired: 6,
-    scaling: {strength: "-", dexterity: "D", intelligence:"B"},
-    calcularDano(jogador) { return calcDano(this, jogador);},
+    scaling: { strength: "-", dexterity: "D", intelligence: "B" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
   },
   "Machado Anão": {
     name: "Machado Anão",
@@ -238,35 +252,35 @@ export const listaConsumiveis: Record<string, IConsumivel> = {
   "Poção de Mana": {
     name: "Poção de Mana",
     description: "Recupera um pouco de mana",
-    usar:(jogador: mainCharacter) => {
+    usar: (jogador: mainCharacter) => {
       const manaRecuperada = 30;
 
       jogador.mana += manaRecuperada;
 
       console.log(chalk.blueBright(`Você usou Poção de Mana e recuperou 30 de Mana`))
-      if (jogador.mana > jogador.maxMana){
+      if (jogador.mana > jogador.maxMana) {
         jogador.mana = jogador.maxMana;
-      } 
-    
+      }
+
     }
 
   },
-"Poção de Energia": {
-  name: "Poção de Energia",
-  description: "Recupera um pouco de energia",
-  usar:(jogador: mainCharacter) => {
+  "Poção de Energia": {
+    name: "Poção de Energia",
+    description: "Recupera um pouco de energia",
+    usar: (jogador: mainCharacter) => {
       const energiaRecuperada = 30;
 
       jogador.energy += energiaRecuperada;
 
       console.log(chalk.blueBright(`Você usou Poção de Energia e recuperou 30 de Energia`))
-      if (jogador.energy > jogador.maxEnergy){
+      if (jogador.energy > jogador.maxEnergy) {
         jogador.energy = jogador.maxEnergy;
-      } 
-    
+      }
+
     }
 
-}
+  }
 
 
 

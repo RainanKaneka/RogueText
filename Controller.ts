@@ -30,7 +30,7 @@ const bossesPorAndar: { [key: number]: string[] } = {
 };
 
 // Estado da Aplicação
-type GameState = "LOBBY" | "LOJA" | "SELECAO_CLASSE" | "EQUIPAMENTO_INICIAL" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER";
+type GameState = "LOBBY" | "LOJA" | "CLASSES" | "SELECAO_CLASSE" | "EQUIPAMENTO_INICIAL" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER";
 
 let estadoAtual: GameState = "LOBBY";
 let jogador: mainCharacter;
@@ -94,13 +94,47 @@ function render() {
     app.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:10px;">
         <button class="btn-lobby" id="btn-nova-run">Nova Run</button>
+        <button class="btn-lobby" id="btn-classes">Classes</button>
         <button class="btn-lobby" id="btn-loja">Loja</button>
         <button class="btn-lobby" id="btn-sobre">Sobre o Jogo</button>
       </div>`;
     document.getElementById("btn-nova-run")!.onclick = () => iniciarNovaRun();
+    document.getElementById("btn-classes")!.onclick = () => { estadoAtual = "CLASSES"; render(); };
     document.getElementById("btn-loja")!.onclick = () => { estadoAtual = "LOJA"; render(); };
     document.getElementById("btn-sobre")!.onclick = () => { estadoAtual = "SOBRE"; render(); };
     playMusic("title");
+    return;
+  }
+
+  if (estadoAtual === "CLASSES") {
+    const save = lerSave();
+    const classesDisp = getClassesDisponiveis(save.andarMaxAlcancado);
+    const classesBloq = getClassesBloqueadas(save.andarMaxAlcancado);
+
+    let html = `<h2>Classes Disponíveis</h2>`;
+    html += `<div style="display:flex; flex-direction:column; gap:10px; margin-bottom: 20px;">`;
+    classesDisp.forEach(c => {
+      html += `<div style="border: 1px solid #444; padding: 10px; border-radius: 4px;">
+                 <h3 style="margin-top:0; color: var(--accent-color);">${c.nome}</h3>
+                 <p style="font-size:0.9rem; color:#ccc;">${c.descricao}</p>
+                 <span style="font-size:0.8rem; color:#888;">Arma Inicial: ${c.armaInicial}</span>
+               </div>`;
+    });
+    
+    if (classesBloq.length > 0) {
+      html += `<h2>Classes Bloqueadas</h2>`;
+      classesBloq.forEach(c => {
+        html += `<div style="border: 1px solid #444; padding: 10px; border-radius: 4px; opacity: 0.6;">
+                   <h3 style="margin-top:0; color: #888;">???</h3>
+                   <span style="font-size:0.8rem; color:#888;">Requisito: Alcançar Andar ${c.andarDesbloqueio}</span>
+                 </div>`;
+      });
+    }
+    
+    html += `</div>`;
+    html += `<button class="btn-action" id="btn-classes-voltar">Voltar</button>`;
+    app.innerHTML = html;
+    document.getElementById("btn-classes-voltar")!.onclick = () => { estadoAtual = "LOBBY"; render(); };
     return;
   }
 
