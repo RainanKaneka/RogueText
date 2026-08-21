@@ -8,10 +8,10 @@ import { initMusic, playMusic } from "./music.js";
 
 // Dados Globais
 const monstrosPorAndar: { [key: number]: string[] } = {
-  1: ["Goblin", "Pequeno Troll", "Cão de Caça"],
-  2: ["Homúnculo", "Esqueleto", "Zumbi"],
-  3: ["Demônio", "Gárgula", "Armadura Viva"],
-  4: ["Lobo sombrio", "Sacerdote Caído", "Quimera"],
+  1: ["Goblin", "Pequeno Troll", "Cão de Caça", "Morcego Raivoso"],
+  2: ["Homúnculo", "Esqueleto", "Zumbi", "Múmia"],
+  3: ["Diabrete", "Gárgula", "Armadura Viva"],
+  4: ["Lobo Sombrio", "Sacerdote Caído", "Quimera"],
   5: ["Medusa", "Verme da Areia", "Sereia"],
   6: ["Vampiro", "Necromante", "Aranha Gigante"],
   7: ["Troll da Montanha", "Wendigo", "Minotauro"],
@@ -24,7 +24,8 @@ const bossesPorAndar: { [key: number]: string[] } = {
   1: ["Dragão"],
   2: ["Hidra"],
   3: ["Serpente de Fogo"],
-  4: ["Servo das Sombras"]
+  4: ["Servo das Sombras"],
+  5: ["Centopeia Anciã"]
 };
 
 // Estado da Aplicação

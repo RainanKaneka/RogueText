@@ -79,10 +79,10 @@ export class mainCharacter extends Attack {
       this.experienceToNextLevel = 100 * (this.level * this.level);
 
       // Aumentos base de recursos por nível
-      this.maxLife += 20 + this.level * 5;
+      this.maxLife += 20 + (this.level * 5) * (this.defense / 2);
       this.life = this.maxLife;
-      this.maxEnergy += 10 + this.level * 2;
-      this.maxMana += 10 + this.level * 2;
+      this.maxEnergy += 10 + (this.level * 2) * (this.strength / 5);
+      this.maxMana += 10 + (this.level * 2) * (this.intelligence /5);
       this.energy = this.maxEnergy;
       this.mana = this.maxMana;
 

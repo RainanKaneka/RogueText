@@ -80,7 +80,7 @@ export const listaArmas: Record<string, IWeapons> = {
     habilidade: undefined,
     raridade: "COMUM",
     price: 250,
-    damage: 28,
+    damage: 20,
     levelRequired: 1,
     scaling: { strength: "C", dexterity: "D", intelligence: "-" },
     calcularDano(jogador) { return calcDano(this, jogador); },
@@ -91,10 +91,21 @@ export const listaArmas: Record<string, IWeapons> = {
     habilidade: undefined,
     raridade: "COMUM",
     price: 250,
-    damage: 25,
+    damage: 20,
     levelRequired: 2,
     scaling: { strength: "-", dexterity: "D", intelligence: "C" },
     calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Cajado do Aprendiz": {
+    name: "Cajado do Aprendiz",
+    description: "Um cajado típico de iniciantes na magia.",
+    habilidade: undefined,
+    raridade: "RARA",
+    price: 1500,
+    damage: 28,
+    levelRequired: 6,
+    scaling: {strength: "-", dexterity: "D", intelligence:"B"},
+    calcularDano(jogador) { return calcDano(this, jogador);},
   },
   "Machado Anão": {
     name: "Machado Anão",
@@ -223,8 +234,44 @@ export const listaConsumiveis: Record<string, IConsumivel> = {
         }
       };
     }
-  }
-};
+  },
+  "Poção de Mana": {
+    name: "Poção de Mana",
+    description: "Recupera um pouco de mana",
+    usar:(jogador: mainCharacter) => {
+      const manaRecuperada = 30;
+
+      jogador.mana += manaRecuperada;
+
+      console.log(chalk.blueBright(`Você usou Poção de Mana e recuperou 30 de Mana`))
+      if (jogador.mana > jogador.maxMana){
+        jogador.mana = jogador.maxMana;
+      } 
+    
+    }
+
+  },
+"Poção de Energia": {
+  name: "Poção de Energia",
+  description: "Recupera um pouco de energia",
+  usar:(jogador: mainCharacter) => {
+      const energiaRecuperada = 30;
+
+      jogador.energy += energiaRecuperada;
+
+      console.log(chalk.blueBright(`Você usou Poção de Energia e recuperou 30 de Energia`))
+      if (jogador.energy > jogador.maxEnergy){
+        jogador.energy = jogador.maxEnergy;
+      } 
+    
+    }
+
+}
+
+
+
+}
+
 
 // =================================================================
 // SISTEMA DE BAÚS

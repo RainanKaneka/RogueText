@@ -172,6 +172,24 @@ export class FuriaBerserker implements Habilidade {
   }
 }
 
+// export class Velocidade implements Habilidade{
+//   nome = "Velocidade";
+//   descricao = "";
+//   tipo = "ATIVA" as const
+//   raridade = "COMUM" as const
+//   custoEnergia = 50;
+//   usar(jogador: mainCharacter, inimigos: enemy[], alvoAtual: number): boolean {
+//     if(jogador.energy < this.custoEnergia){
+//        console.log(chalk.blue(`Você não tem Energia suficiente! (Necessário: ${this.custoEnergia})`));
+//       return false;
+//     }
+//     jogador.energy -= this.custoEnergia
+//     const bonusDex = 1
+
+//   }
+
+// }
+
 export const TODAS_HABILIDADES: Habilidade[] = [
   new GolpeForte(),
   new BolaDeFogo(),
@@ -196,7 +214,7 @@ export function sortearTresHabilidades(nivel: number, habilidadesAprendidas: Hab
     let raridadeAlvo: Raridade = "COMUM";
     let chance = Math.random() * 100;
     // A mágica da probabilidade por nível acontece aqui:
-    if (nivel >= 7 && chance <= 10) raridadeAlvo = "EPICA";
+    if (nivel >= 7 && chance <= 10) raridadeAlvo = "EPICA"
     else if (nivel >= 3 && chance <= 30) raridadeAlvo = "RARA";
     // Procura no pool se existe alguma skill da raridade sorteada
     let indexAchado = pool.findIndex(h => h.raridade === raridadeAlvo);
