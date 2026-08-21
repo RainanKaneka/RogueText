@@ -3,6 +3,10 @@
 
 let parryStreak = 0; // Quantos parrys consecutivos o jogador acertou
 
+// Bônus de janela externo (ex: habilidade Velocidade)
+export let parryWindowBonus = 0;
+export function setParryWindowBonus(v: number) { parryWindowBonus = v; }
+
 const BASE_SPEED = 2;       // % da barra por frame (base)
 const SPEED_INCREMENT = 0.05;  // velocidade extra por streak
 const BASE_WINDOW = 15;        // tamanho inicial da janela de sucesso (%)
@@ -12,7 +16,7 @@ const MIN_WINDOW = 2;          // janela mínima (%)
 export function showParryBar(onSuccess: () => void, onFail: () => void): void {
   // Calcula dificuldade atual com base no streak
   const speed = BASE_SPEED + parryStreak * SPEED_INCREMENT;
-  const windowSize = Math.max(MIN_WINDOW, BASE_WINDOW - parryStreak * WINDOW_DECREMENT);
+  const windowSize = Math.max(MIN_WINDOW, BASE_WINDOW - parryStreak * WINDOW_DECREMENT + parryWindowBonus);
 
   // Posição da janela de sucesso (randomizada levemente, mas sempre com espaço nas bordas)
   const minPos = 10;

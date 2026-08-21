@@ -5,7 +5,7 @@ import { sortearTresHabilidades } from "./actions";
 import { getClassesDisponiveis, getClassesBloqueadas, aplicarClasse } from "./classes";
 import { lerSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras } from "./saveData";
 import { initMusic, playMusic } from "./music.js";
-import { showParryBar } from "./parry.js";
+import { showParryBar, setParryWindowBonus } from "./parry.js";
 
 // Dados Globais
 const monstrosPorAndar: { [key: number]: string[] } = {
@@ -41,6 +41,7 @@ let logMensagem: string = "Bem-vindo ao RogueText!";
 let opcoesAcao: { texto: string, acao: () => void, descricao?: string }[] = [];
 let lojaAba: "comprar" | "vender" = "comprar";
 let itemParaConfirmarVenda: { tipo: "arma" | "consumivel"; nome: string; raridade: string; preco: number } | null = null;
+let raioNegroStack: number = 0; // Stack dinâmico de crit da passiva Raio Negro
 
 // Preços de revenda por raridade (em ouro)
 const PRECO_REVENDA: Record<string, number> = {
@@ -512,6 +513,8 @@ function iniciarNovaRun() {
   save.consumiveisExtras.forEach(consName => {
     jogador.inventory.push(consName);
   });
+  raioNegroStack = 0;
+  setParryWindowBonus(0);
   andarAtual = 1;
   salaAtual = 0;
   estadoAtual = "SELECAO_CLASSE";
@@ -674,13 +677,30 @@ function escolherAlvoAtaque() {
 function atacarInimigo(alvoIdx: number) {
   const alvo = inimigosAtuais[alvoIdx]!;
   const danoBase = jogador.danoComArma();
-  const isCrit = Math.random() < jogador.taxaCritica;
+
+  // Raio Negro: bônus de crit acumulado (passiva épica)
+  const temRaioNegro = jogador.skills.some(s => s.nome === "Raio Negro");
+  const critBase = jogador.taxaCritica;
+  const critRaioNegro = temRaioNegro ? 0.05 + (raioNegroStack * 0.10) : 0;
+  const critTotal = Math.min(0.65, critBase + critRaioNegro);
+
+  const isCrit = Math.random() < critTotal;
   const danoFinal = Math.floor(isCrit ? danoBase * 2 : danoBase);
+
+  // Atualiza stack do Raio Negro
+  if (temRaioNegro) {
+    if (isCrit) {
+      raioNegroStack = Math.min(raioNegroStack + 1, 6); // máx 6 stacks = +60% (teto é 65% total)
+    } else {
+      raioNegroStack = 0; // errou, reseta
+    }
+  }
 
   alvo.life -= danoFinal;
 
   let msg = `Você atacou ${alvo.name} causando ${danoFinal} de dano!`;
   if (isCrit) msg = `⚡ CRÍTICO! ` + msg;
+  if (temRaioNegro && isCrit) msg += ` (Raio Negro: ${(critTotal * 100).toFixed(0)}% crit — streak ${raioNegroStack})`;
 
   if (alvo.life <= 0) {
     msg += ` ${alvo.name} foi derrotado (+${alvo.goldReward}G)!`;
@@ -760,6 +780,10 @@ function turnoInimigo() {
 
   let totalDano = 0;
   jogador.processarBuffs();
+
+  // Atualiza bônus da janela de Parry (habilidade Velocidade)
+  const temVelocidade = jogador.activeBuffs.some(b => b.name === "Velocidade");
+  setParryWindowBonus(temVelocidade ? 20 : 0); // +20% de janela quando ativo
 
   inimigosAtuais.forEach(ini => {
     const reducao = Math.min(jogador.defense * 0.005, 0.8);

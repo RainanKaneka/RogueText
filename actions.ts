@@ -172,23 +172,78 @@ export class FuriaBerserker implements Habilidade {
   }
 }
 
-// export class Velocidade implements Habilidade{
-//   nome = "Velocidade";
-//   descricao = "";
-//   tipo = "ATIVA" as const
-//   raridade = "COMUM" as const
-//   custoEnergia = 50;
-//   usar(jogador: mainCharacter, inimigos: enemy[], alvoAtual: number): boolean {
-//     if(jogador.energy < this.custoEnergia){
-//        console.log(chalk.blue(`Você não tem Energia suficiente! (Necessário: ${this.custoEnergia})`));
-//       return false;
-//     }
-//     jogador.energy -= this.custoEnergia
-//     const bonusDex = 1
+// =====================================================================
+// NOVAS HABILIDADES
+// =====================================================================
 
-//   }
+export class RaioNegro implements Habilidade {
+  nome = "Raio Negro";
+  descricao = "Passiva Épica. +5% crit base. Acertos críticos consecutivos aumentam a chance em +10% (máx 65%). Errar reseta.";
+  tipo = "PASSIVA" as const;
+  raridade = "EPICA" as const;
+  // Stack atual do bonus crit (controlado externamente pelo Controller ao processar ataques)
+  usar(jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean {
+    // Passiva — aplicada no momento de carregar a habilidade (bônus base fixo)
+    // O stack dinâmico é gerenciado em Controller.ts via raioNegroStack
+    return true;
+  }
+}
 
-// }
+export class Velocidade implements Habilidade {
+  nome = "Velocidade";
+  descricao = "Usa 100 Mana. Por 3 turnos, a janela de acerto do Parry fica maior, facilitando o timing.";
+  tipo = "ATIVA" as const;
+  raridade = "LENDARIA" as const;
+  custoMana = 100;
+  usar(jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean {
+    if (jogador.mana < this.custoMana) {
+      console.log(chalk.blue(`Você não tem Mana suficiente! (Necessário: ${this.custoMana})`));
+      return false;
+    }
+    jogador.mana -= this.custoMana;
+    jogador.activeBuffs.push({
+      name: "Velocidade",
+      duration: 3,
+      onExpire: (_j: mainCharacter) => {
+        console.log(chalk.yellowBright("[Velocidade] O efeito de Velocidade se encerrou."));
+      }
+    });
+    console.log(chalk.cyanBright("💨 Velocidade ativada! Janela de Parry aumentada por 3 turnos!"));
+    return true;
+  }
+}
+
+export class CortesFan implements Habilidade {
+  nome = "Cortes Fantasma";
+  descricao = "Usa 40 Energia. Desfere 3 cortes que atravessam o 1º inimigo e atingem o 2º — escala com Destreza (DEX).";
+  tipo = "ATIVA" as const;
+  raridade = "RARA" as const;
+  custoEnergia = 40;
+  usar(jogador: mainCharacter, inimigos: enemy[], alvo: number): boolean {
+    if (jogador.energy < this.custoEnergia) {
+      console.log(chalk.blue(`Você não tem Energia suficiente! (Necessário: ${this.custoEnergia})`));
+      return false;
+    }
+    jogador.energy -= this.custoEnergia;
+    const bonusDex = calcBonusAtributo(jogador.dexterity, 0.10);
+    const danoPorCorte = Math.floor((jogador.danoComArma() / 2) + bonusDex);
+    let log = `👻 Cortes Fantasma! 3 cortes de ${danoPorCorte} dano cada (Bônus DEX: +${bonusDex})`;
+    for (let i = 0; i < 3; i++) {
+      // Corte no alvo principal
+      if (inimigos[alvo] && inimigos[alvo]!.life > 0) {
+        inimigos[alvo]!.life -= danoPorCorte;
+      }
+      // Atravessa para o segundo inimigo (próximo ativo)
+      const segundoAlvo = inimigos.findIndex((ini, idx) => idx !== alvo && ini.life > 0);
+      if (segundoAlvo !== -1) {
+        inimigos[segundoAlvo]!.life -= danoPorCorte;
+      }
+    }
+    console.log(chalk.cyanBright(log));
+    return true;
+  }
+}
+
 
 export const TODAS_HABILIDADES: Habilidade[] = [
   new GolpeForte(),
@@ -196,7 +251,10 @@ export const TODAS_HABILIDADES: Habilidade[] = [
   new DrenarVida(),
   new FuriaBerserker(),
   new PosturaDefensiva(),
-  new Cura()
+  new Cura(),
+  new RaioNegro(),
+  new Velocidade(),
+  new CortesFan(),
 ];
 
 // 5. O ALGORITMO DE SORTEIO (GACHA)
