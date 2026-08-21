@@ -454,6 +454,14 @@ function render() {
         <span class="text-gray">Arma: ${jogador.equippedWeapon?.name || "Nenhuma"} (${jogador.danoComArma()} Dano)</span>
         <span class="text-gray">Crítico: ${(jogador.taxaCritica * 100).toFixed(0)}%</span>
       </div>
+      ${jogador.skills.filter(s => s.tipo === "PASSIVA").length > 0 ? `
+      <div style="margin-top:8px; padding-top:6px; border-top: 1px solid #333;">
+        <span style="color:#888; font-size:0.85rem;">Passivas: </span>
+        ${jogador.skills.filter(s => s.tipo === "PASSIVA").map(s => {
+          const cor = s.raridade === "EPICA" ? "#cc5de8" : s.raridade === "LENDARIA" ? "#fcc419" : s.raridade === "RARA" ? "#339af0" : "#aaa";
+          return `<span style="color:${cor}; font-size:0.85rem; margin-right:10px;" title="${s.descricao}">✨ ${s.nome}</span>`;
+        }).join("")}
+      </div>` : ""}
     </div>
   `;
 
@@ -759,17 +767,21 @@ function atacarInimigo(alvoIdx: number) {
 }
 
 function menuHabilidades() {
-  if (jogador.skills.length === 0) {
-    atualizarLog("Você não possui habilidades!");
+  const ativas = jogador.skills.filter(s => s.tipo === "ATIVA");
+  if (ativas.length === 0) {
+    atualizarLog("Você não possui habilidades ativas!");
     menuBatalhaPrincipal();
     return;
   }
 
-  opcoesAcao = jogador.skills.map((skill, idx) => ({
-    texto: `${skill.nome} (${skill.tipo})`,
-    descricao: skill.descricao,
-    acao: () => usarHabilidade(idx)
-  }));
+  opcoesAcao = ativas.map((skill) => {
+    const idxReal = jogador.skills.indexOf(skill);
+    return {
+      texto: `${skill.nome} (${skill.tipo})`,
+      descricao: skill.descricao,
+      acao: () => usarHabilidade(idxReal)
+    };
+  });
   opcoesAcao.push({ texto: "Voltar", acao: () => menuBatalhaPrincipal() });
   render();
 }
@@ -926,8 +938,8 @@ function vencerBatalha() {
     // Drop de arma: raridade escala com o andar
     const raridadesPossiveis: Array<"COMUM" | "RARA" | "EPICA"> =
       andarAtual <= 3 ? ["COMUM"] :
-      andarAtual <= 6 ? ["COMUM", "RARA"] :
-      ["COMUM", "RARA", "EPICA"];
+        andarAtual <= 6 ? ["COMUM", "RARA"] :
+          ["COMUM", "RARA", "EPICA"];
     const raridadeEscolhida = raridadesPossiveis[Math.floor(Math.random() * raridadesPossiveis.length)]!;
     const armasFiltradas = Object.values(listaArmas).filter(
       a => a.raridade === raridadeEscolhida && a.name !== "Espada Quebrada"
