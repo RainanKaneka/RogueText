@@ -10,7 +10,9 @@ export interface SaveData {
   flags?: string[];
   drops?: Record<string, number>;
   armaduraEquipada?: string;
-  acessorioEquipado?: string;
+  acessorioEquipado?: string; // Legacy
+  acessoriosEquipados?: string[];
+  itemSeguroEquipado?: string | undefined;
   armaEquipada?: string;
 }
 
@@ -171,23 +173,32 @@ export function consumirDrops(receita: Record<string, number>): boolean {
 export interface LoadoutSalvo {
   arma: string;
   armadura: string;
-  acessorio: string;
+  acessorios: string[];
+  itemSeguro?: string | undefined;
 }
 
 export function salvarLoadout(loadout: LoadoutSalvo): void {
   const save = lerSave();
   save.armaEquipada = loadout.arma;
   save.armaduraEquipada = loadout.armadura;
-  save.acessorioEquipado = loadout.acessorio;
+  save.acessoriosEquipados = loadout.acessorios;
+  save.itemSeguroEquipado = loadout.itemSeguro;
   salvarSave(save);
 }
 
 export function lerLoadout(): LoadoutSalvo {
   const save = lerSave();
+  let accs = save.acessoriosEquipados;
+  // Migração legacy se o array não existir mas o acessorio único existir
+  if (!accs && save.acessorioEquipado) {
+    accs = [save.acessorioEquipado];
+  }
+
   return {
     arma: save.armaEquipada ?? "Espada Quebrada",
     armadura: save.armaduraEquipada ?? "Robes Rasgados",
-    acessorio: save.acessorioEquipado ?? "Sem Acessório",
+    acessorios: accs ?? ["Sem Acessório"],
+    itemSeguro: save.itemSeguroEquipado
   };
 }
 

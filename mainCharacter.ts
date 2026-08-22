@@ -28,7 +28,7 @@ export class mainCharacter extends Attack {
   public weaponInventory: IWeapons[] = [];
   public equippedWeapon: IWeapons;
   public equippedArmor: IArmadura | null = null;
-  public equippedAccessory: IAcessorio | null = null;
+  public equippedAccessories: IAcessorio[] = [];
   public classe: string = "";
   public pontosDeAtributo: number = 0;
   public gold: number = 0;
@@ -111,28 +111,16 @@ export class mainCharacter extends Attack {
   }
 
   /**
-   * Equipa um acessório: aplica bonusStats e aciona a passiva.
-   * Remove o acessório anterior antes de aplicar o novo.
+   * Equipa um acessório, aplicando seus stats e passiva.
+   * Não limpa os acessórios anteriores. Use removerEquipamentos() antes de reequipar.
    */
   equiparAcessorio(acessorio: IAcessorio): void {
-    // Remove bônus do acessório anterior, se existir
-    if (this.equippedAccessory) {
-      const prev = this.equippedAccessory.bonusStats;
-      if (prev) {
-        this.strength    -= prev.strength    ?? 0;
-        this.dexterity   -= prev.dexterity   ?? 0;
-        this.intelligence -= prev.intelligence ?? 0;
-        this.luck        -= prev.luck        ?? 0;
-        this.defense     -= prev.defense     ?? 0;
-      }
-      this.equippedAccessory.passiva?.remover(this);
-    }
-    this.equippedAccessory = acessorio;
+    this.equippedAccessories.push(acessorio);
     const stats = acessorio.bonusStats;
     if (stats) {
       this.strength    += stats.strength    ?? 0;
       this.dexterity   += stats.dexterity   ?? 0;
-      this.intelligence += stats.intelligence ?? 0;
+      this.intelligence+= stats.intelligence?? 0;
       this.luck        += stats.luck        ?? 0;
       this.defense     += stats.defense     ?? 0;
     }
@@ -150,18 +138,18 @@ export class mainCharacter extends Attack {
       this.equippedArmor.passiva?.remover(this);
       this.equippedArmor = null;
     }
-    if (this.equippedAccessory) {
-      const stats = this.equippedAccessory.bonusStats;
+    for (const acc of this.equippedAccessories) {
+      const stats = acc.bonusStats;
       if (stats) {
         this.strength    -= stats.strength    ?? 0;
         this.dexterity   -= stats.dexterity   ?? 0;
-        this.intelligence -= stats.intelligence ?? 0;
+        this.intelligence-= stats.intelligence?? 0;
         this.luck        -= stats.luck        ?? 0;
         this.defense     -= stats.defense     ?? 0;
       }
-      this.equippedAccessory.passiva?.remover(this);
-      this.equippedAccessory = null;
+      acc.passiva?.remover(this);
     }
+    this.equippedAccessories = [];
   }
 
   levelUp(): boolean {
@@ -228,8 +216,10 @@ export class mainCharacter extends Attack {
     if (this.equippedArmor?.passiva?.onTurn) {
       this.equippedArmor.passiva.onTurn(this, inimigos);
     }
-    if (this.equippedAccessory?.passiva?.onTurn) {
-      this.equippedAccessory.passiva.onTurn(this, inimigos);
+    for (const acc of this.equippedAccessories) {
+      if (acc.passiva?.onTurn) {
+        acc.passiva.onTurn(this, inimigos);
+      }
     }
   }
 }

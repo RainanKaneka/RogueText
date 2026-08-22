@@ -31,7 +31,7 @@ const bossesPorAndar: { [key: number]: string[] } = {
 };
 
 // Estado da Aplicação
-type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA";
+type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS";
 
 let estadoAtual: GameState = "LOBBY";
 let jogador: mainCharacter;
@@ -105,6 +105,7 @@ function render() {
         <button class="btn-lobby" id="btn-loja">Loja</button>
         <button class="btn-lobby" id="btn-ferreiro">Ferreiro</button>
         <button class="btn-lobby" id="btn-mochila">Mochila</button>
+        <button class="btn-lobby" id="btn-marcos">Marcos</button>
         <button class="btn-lobby" id="btn-classes">Classes</button>
         <button class="btn-lobby" id="btn-sobre">Sobre o Jogo</button>
       </div>`;
@@ -114,6 +115,7 @@ function render() {
     document.getElementById("btn-ferreiro")!.onclick = () => { estadoAtual = "FERREIRO"; render(); };
     document.getElementById("btn-sobre")!.onclick = () => { estadoAtual = "SOBRE"; render(); };
     document.getElementById("btn-mochila")!.onclick = () => { estadoAtual = "MOCHILA"; render(); };
+    document.getElementById("btn-marcos")!.onclick = () => { estadoAtual = "MARCOS"; render(); };
 
     document.querySelectorAll(".btn-lobby").forEach(btn => {
       btn.addEventListener("mouseenter", () => playSfx("hover"));
@@ -619,6 +621,36 @@ function render() {
     return;
   }
 
+  if (estadoAtual === "MARCOS") {
+    const save = lerSave();
+    const maxFloor = save.andarMaxAlcancado;
+    let html = `<h2>Marcos Alcançados</h2><div style="text-align:left; color:#ccc; max-width:600px; margin: 0 auto;">`;
+    
+    html += `<div style="margin-bottom:15px; padding:10px; border:1px solid ${maxFloor >= 5 ? '#ffd700' : '#444'}; border-radius: 8px;">
+      <h3 style="color:${maxFloor >= 5 ? '#ffd700' : '#777'}">Marco 1 (Andar 5) - ${maxFloor >= 5 ? 'Desbloqueado!' : 'Bloqueado'}</h3>
+      <p>Libera 1 espaço adicional de acessório no loadout (2 espaços).</p>
+    </div>`;
+
+    html += `<div style="margin-bottom:15px; padding:10px; border:1px solid ${maxFloor >= 7 ? '#ffd700' : '#444'}; border-radius: 8px;">
+      <h3 style="color:${maxFloor >= 7 ? '#ffd700' : '#777'}">Marco 2 (Andar 7) - ${maxFloor >= 7 ? 'Desbloqueado!' : 'Bloqueado'}</h3>
+      <p>Libera o Espaço Seguro no loadout. O item Seguro não é perdido se você morrer antes do andar 7.</p>
+    </div>`;
+
+    html += `<div style="margin-bottom:15px; padding:10px; border:1px solid ${maxFloor >= 10 ? '#ffd700' : '#444'}; border-radius: 8px;">
+      <h3 style="color:${maxFloor >= 10 ? '#ffd700' : '#777'}">Marco 3 (Andar 10) - ${maxFloor >= 10 ? 'Desbloqueado!' : 'Bloqueado'}</h3>
+      <p>Libera o 3º espaço de acessório no loadout (3 espaços).</p>
+    </div>`;
+
+    html += `</div>
+      <div style="margin-top:20px; text-align: center;">
+        <button class="btn-lobby" id="btn-voltar-marcos" style="padding: 10px 20px;">Voltar ao Lobby</button>
+      </div>
+    `;
+    app.innerHTML = html;
+    document.getElementById("btn-voltar-marcos")!.onclick = () => { estadoAtual = "LOBBY"; render(); };
+    return;
+  }
+
   if (estadoAtual === "SELECAO_CLASSE") {
     const save = lerSave();
     const disponiveis = getClassesDisponiveis(save);
@@ -686,18 +718,31 @@ function render() {
       .map(name => listaAcessorios[name])
       .filter(Boolean) as import("./artefacts").IAcessorio[];
 
+    const maxAcessorios = save.andarMaxAlcancado >= 10 ? 3 : (save.andarMaxAlcancado >= 5 ? 2 : 1);
+    const temEspacoSeguro = save.andarMaxAlcancado >= 7;
+
     let selectedArma = loadoutAtual.arma;
     let selectedArmadura = loadoutAtual.armadura;
-    let selectedAcessorio = loadoutAtual.acessorio;
+    let selectedAcessorios = [...loadoutAtual.acessorios];
+    // Garante que o array tenha o tamanho certo
+    while (selectedAcessorios.length < maxAcessorios) selectedAcessorios.push("Sem Acessório");
+    if (selectedAcessorios.length > maxAcessorios) selectedAcessorios = selectedAcessorios.slice(0, maxAcessorios);
+    
+    let selectedItemSeguro: string | undefined = loadoutAtual.itemSeguro;
 
     const rarColor: Record<string, string> = {
       COMUM: "#aaa", RARA: "#4dabf7", EPICA: "#cc5de8", LENDARIA: "#ffd43b", UNICA: "#ff6b6b"
     };
 
     function renderLoadout() {
+      const itensSelecionados = [selectedArma, selectedArmadura, ...selectedAcessorios.filter(a => a !== "Sem Acessório")];
+      if (selectedItemSeguro && !itensSelecionados.includes(selectedItemSeguro)) {
+        selectedItemSeguro = undefined;
+      }
+
       let html = `
-        <div style="max-width:750px; margin:0 auto; display:flex; flex-direction:column; gap:20px;">
-          <h2 style="text-align:center; margin:0;">⚔️ Configurar Loadout</h2>
+        <div style="max-width:850px; margin:0 auto; display:flex; flex-direction:column; gap:20px;">
+          <h2 style="text-align:center; margin:0;">🛠️ Configurar Loadout</h2>
           <p style="text-align:center; color:#888; margin:0;">Escolha seu equipamento antes de entrar na masmorra.</p>
 
           <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px;">
@@ -723,19 +768,34 @@ function render() {
             </div>
             <!-- ACESSORIOS -->
             <div>
-              <h3 style="color:#a9e34b; margin:0 0 8px 0;">💍 Acessório</h3>
-              ${acessoriosDisponiveis.map(a => `
-                <button id="lb-acc-${a.name.replace(/\s/g, '_')}" class="btn-action"
-                  style="width:100%; margin-bottom:5px; ${selectedAcessorio === a.name ? 'border-color:#a9e34b; background:rgba(169,227,75,0.15);' : ''}">
-                  <span style="color:${rarColor[a.raridade] ?? '#aaa'};">${a.name}</span><br>
-                  <small>${a.bonusStats ? Object.entries(a.bonusStats).map(([k, v]) => `+${v} ${k}`).join(' ') : (a.passiva?.nome ?? 'Sem bônus')}</small>
-                </button>`).join('')}
+              <h3 style="color:#a9e34b; margin:0 0 8px 0;">💍 Acessórios (${maxAcessorios})</h3>
+              ${Array.from({length: maxAcessorios}).map((_, slotIdx) => `
+                <div style="margin-bottom:15px; border:1px dashed #555; padding:5px;">
+                  <h4 style="margin:0 0 5px 0; font-size:0.9rem; color:#888;">Slot ${slotIdx + 1}</h4>
+                  ${acessoriosDisponiveis.map(a => `
+                    <button id="lb-acc-${slotIdx}-${a.name.replace(/\s/g, '_')}" class="btn-action"
+                      style="width:100%; margin-bottom:3px; padding: 5px; ${selectedAcessorios[slotIdx] === a.name ? 'border-color:#a9e34b; background:rgba(169,227,75,0.15);' : ''}">
+                      <span style="font-size:0.9rem; color:${rarColor[a.raridade] ?? '#aaa'};">${a.name}</span>
+                    </button>`).join('')}
+                </div>
+              `).join('')}
             </div>
           </div>
 
+          ${temEspacoSeguro ? `
+            <div style="margin-top:10px; border:1px solid #ffd700; padding:10px; border-radius:8px; text-align:center;">
+              <h3 style="color:#ffd700; margin:0 0 10px 0;">🔒 Espaço Seguro (Marco 2)</h3>
+              <p style="font-size:0.9rem; color:#ccc; margin-bottom:10px;">Escolha 1 item equipado. Ele não será perdido se morrer até o Andar 6.</p>
+              <select id="lb-seguro-select" style="padding:8px; background:#222; color:#fff; border:1px solid #555; border-radius:4px; font-size:1rem; width:100%; max-width:400px;">
+                <option value="">-- Nenhum --</option>
+                ${itensSelecionados.map(i => `<option value="${i}" ${selectedItemSeguro === i ? 'selected' : ''}>${i}</option>`).join('')}
+              </select>
+            </div>
+          ` : ''}
+
           <div style="display:flex; gap:10px; justify-content:center; margin-top:10px;">
-            <button class="btn-lobby" id="lb-confirmar" style="padding:12px 40px; font-size:1.1rem;">✅ Confirmar e Continuar</button>
-            <button class="btn-lobby" id="lb-voltar" style="padding:12px 20px;">← Voltar ao Lobby</button>
+            <button class="btn-lobby" id="lb-confirmar" style="padding:12px 40px; font-size:1.1rem;">🚀 Confirmar e Continuar</button>
+            <button class="btn-lobby" id="lb-voltar" style="padding:12px 20px;">🔙 Voltar ao Lobby</button>
           </div>
         </div>
       `;
@@ -750,12 +810,23 @@ function render() {
         document.getElementById(`lb-arm-${a.name.replace(/\s/g, '_')}`)!.onclick = () => { selectedArmadura = a.name; renderLoadout(); };
       });
       // Eventos dos acessórios
-      acessoriosDisponiveis.forEach(a => {
-        document.getElementById(`lb-acc-${a.name.replace(/\s/g, '_')}`)!.onclick = () => { selectedAcessorio = a.name; renderLoadout(); };
-      });
+      for (let slotIdx = 0; slotIdx < maxAcessorios; slotIdx++) {
+        acessoriosDisponiveis.forEach(a => {
+          document.getElementById(`lb-acc-${slotIdx}-${a.name.replace(/\s/g, '_')}`)!.onclick = () => { 
+            selectedAcessorios[slotIdx] = a.name; 
+            renderLoadout(); 
+          };
+        });
+      }
+
+      if (temEspacoSeguro) {
+        document.getElementById("lb-seguro-select")!.onchange = (e) => {
+          selectedItemSeguro = (e.target as HTMLSelectElement).value || undefined;
+        };
+      }
 
       document.getElementById("lb-confirmar")!.onclick = () => {
-        salvarLoadout({ arma: selectedArma, armadura: selectedArmadura, acessorio: selectedAcessorio });
+        salvarLoadout({ arma: selectedArma, armadura: selectedArmadura, acessorios: selectedAcessorios, itemSeguro: selectedItemSeguro });
         aplicarLoadoutAoJogador();
         estadoAtual = "SELECAO_CLASSE";
         render();
@@ -913,8 +984,10 @@ function aplicarLoadoutAoJogador() {
   }
   const armadura = listaArmaduras[loadout.armadura];
   if (armadura) jogador.equiparArmadura(armadura);
-  const acessorio = listaAcessorios[loadout.acessorio];
-  if (acessorio) jogador.equiparAcessorio(acessorio);
+  loadout.acessorios.forEach(accName => {
+    const acessorio = listaAcessorios[accName];
+    if (acessorio) jogador.equiparAcessorio(acessorio);
+  });
 }
 
 function avancarSala() {
@@ -977,15 +1050,20 @@ function menuBatalhaPrincipal() {
     // Perda de itens do loadout na morte (se não forem os básicos)
     const armadurasBasicas = ["Robes Rasgados", "Vestes de Couro"];
     const acessoriosBasicos = ["Sem Acessório", "Amuleto da Vitalidade", "Anel da Força", "Anel da Sorte"];
-    if (jogador.equippedWeapon.name !== "Espada Quebrada") {
+    const loadoutAtual = lerLoadout();
+    const isSeguro = (itemName: string) => (loadoutAtual.itemSeguro === itemName && andarAtual <= 6);
+
+    if (jogador.equippedWeapon.name !== "Espada Quebrada" && !isSeguro(jogador.equippedWeapon.name)) {
       removerItemExtra(jogador.equippedWeapon.name);
     }
-    if (jogador.equippedArmor && !armadurasBasicas.includes(jogador.equippedArmor.name)) {
+    if (jogador.equippedArmor && !armadurasBasicas.includes(jogador.equippedArmor.name) && !isSeguro(jogador.equippedArmor.name)) {
       removerItemExtra(jogador.equippedArmor.name);
     }
-    if (jogador.equippedAccessory && !acessoriosBasicos.includes(jogador.equippedAccessory.name)) {
-      removerItemExtra(jogador.equippedAccessory.name);
-    }
+    jogador.equippedAccessories.forEach((acc: any) => {
+      if (!acessoriosBasicos.includes(acc.name) && !isSeguro(acc.name)) {
+        removerItemExtra(acc.name);
+      }
+    });
 
     limparArmasExtras();
     limparConsumiveisExtras();
