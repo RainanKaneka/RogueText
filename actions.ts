@@ -91,10 +91,16 @@ export class PosturaDefensiva implements Habilidade {
   nome = "Postura Defensiva";
   descricao = "Usa 15 Energia. Aumenta Defesa temporariamente — escala com Defesa (DEF).";
   tipo = "ATIVA" as const;
-  custoEnergia = 15;
+  custoEnergia = 40;
   raridade: Raridade = "COMUM";
 
   usar(jogador: mainCharacter, inimigos: enemy[], alvoAtual: number): boolean {
+    const isAtiva = jogador.activeBuffs.some(b => b.name === "Postura Defensiva");
+    if (isAtiva) {
+      console.log(chalk.yellow("Você já está em Postura Defensiva!"));
+      return false;
+    }
+
     if (jogador.energy < this.custoEnergia) {
       console.log(chalk.blue(`Você não tem Energia suficiente! (Necessário: ${this.custoEnergia})`));
       return false;
@@ -103,7 +109,18 @@ export class PosturaDefensiva implements Habilidade {
     const bonusDef = 5 + Math.floor(jogador.defense * 0.2);
     jogador.defense += bonusDef;
     jogador.bloqueando = true;
-    console.log(chalk.cyanBright(`🛡️ Postura defensiva assumida! +${bonusDef} de Defesa temporária. (Defesa total: ${jogador.defense})`));
+
+    jogador.activeBuffs.push({
+      name: "Postura Defensiva",
+      duration: 3,
+      onExpire: (jog: mainCharacter) => {
+        jog.defense -= bonusDef;
+        jog.bloqueando = false;
+        console.log(chalk.yellow(`🛡️ A Postura Defensiva acabou. Defesa retornou ao normal.`));
+      }
+    });
+
+    console.log(chalk.cyanBright(`🛡️ Postura defensiva assumida! +${bonusDef} de Defesa por 3 turnos. (Defesa atual: ${jogador.defense})`));
     return true;
   }
 }
