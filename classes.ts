@@ -93,11 +93,11 @@ export function getClassesBloqueadas(save: SaveData): IClasse[] {
 
 export function aplicarClasse(jogador: mainCharacter, classe: IClasse): void {
   jogador.classe = classe.nome;
-  jogador.strength = classe.atributos.strength;
-  jogador.dexterity = classe.atributos.dexterity;
-  jogador.intelligence = classe.atributos.intelligence;
-  jogador.luck = classe.atributos.luck;
-  jogador.defense = classe.atributos.defense;
+  jogador.strength += classe.atributos.strength;
+  jogador.dexterity += classe.atributos.dexterity;
+  jogador.intelligence += classe.atributos.intelligence;
+  jogador.luck += classe.atributos.luck;
+  jogador.defense += classe.atributos.defense;
 
   const arma = listaArmas[classe.armaInicial];
   if (arma) {
