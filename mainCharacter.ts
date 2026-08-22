@@ -67,6 +67,19 @@ export class mainCharacter extends Attack {
     return this.life > 0;
   }
 
+  curar(quantidade: number): void {
+    let curaFinal = quantidade;
+    const temEncanto = this.skills.some(s => s.nome === "Encanto do Bardo");
+    if (temEncanto) {
+      curaFinal = Math.floor(curaFinal * 1.25);
+    }
+    
+    this.life += curaFinal;
+    if (this.life > this.maxLife) {
+      this.life = this.maxLife;
+    }
+  }
+
   // Retorna o dano físico considerando a arma equipada e seu escalonamento
   danoComArma(): number {
     return this.equippedWeapon.calcularDano(this);

@@ -5,6 +5,7 @@ export interface SaveData {
   gold: number;
   armasExtras: string[];
   consumiveisExtras: string[];
+  flags?: string[];
 }
 
 const DEFAULT_SAVE: SaveData = {
@@ -12,6 +13,7 @@ const DEFAULT_SAVE: SaveData = {
   gold: 0,
   armasExtras: [],
   consumiveisExtras: [],
+  flags: [],
 };
 
 export function lerSave(): SaveData {
@@ -81,5 +83,19 @@ export function limparConsumiveisExtras(): void {
   const save = lerSave();
   save.consumiveisExtras = [];
   salvarSave(save);
+}
+
+export function desbloquearFlag(flagName: string): void {
+  const save = lerSave();
+  if (!save.flags) save.flags = [];
+  if (!save.flags.includes(flagName)) {
+    save.flags.push(flagName);
+    salvarSave(save);
+  }
+}
+
+export function temFlag(flagName: string): boolean {
+  const save = lerSave();
+  return !!save.flags?.includes(flagName);
 }
 

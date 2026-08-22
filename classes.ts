@@ -1,6 +1,7 @@
-import type { Habilidade } from './actions.js';
+import { EncantoDoBardo, DominioDaMorte, type Habilidade } from './actions.js';
 import { listaArmas } from './artefacts.js';
 import type { mainCharacter } from './mainCharacter.js';
+import type { SaveData } from './saveData.js';
 
 // =====================================================================
 // INTERFACE DE CLASSE
@@ -10,6 +11,8 @@ export interface IClasse {
   nome: string;
   descricao: string;
   andarDesbloqueio: number;
+  condicaoDesbloqueio?: (save: SaveData) => boolean;
+  mensagemRequisito?: string;
   atributos: {
     strength: number;
     dexterity: number;
@@ -53,10 +56,20 @@ export const listaClasses: IClasse[] = [
   {
     nome: 'Bardo',
     descricao: 'Um bardo versátil. Alta Destreza e Sorte garantem críticos frequentes.',
+    andarDesbloqueio: 3,
+    atributos: { strength: 1, dexterity: 2, intelligence: 2, luck: 5, defense: 1 },
+    armaInicial: 'Trompete do Bardo',
+    passivas: [new EncantoDoBardo()],
+  },
+  {
+    nome: 'Necromante',
+    descricao: 'Um necromante habilidoso.',
     andarDesbloqueio: 5,
-    atributos: { strength: 1, dexterity: 2, intelligence: 2, luck: 4, defense: 0 },
-    armaInicial: 'Adaga',
-    passivas: [],
+    condicaoDesbloqueio: (save) => save.andarMaxAlcancado >= 5 && !!save.flags?.includes("necromante_unlock"),
+    mensagemRequisito: "Alcançar Andar 5 e derrotar Servo das Sombras com >50% de vida",
+    atributos: { strength: 0, dexterity: 3, intelligence: 5, luck: 4, defense: 0 },
+    armaInicial: 'Tomo Antigo',
+    passivas: [new DominioDaMorte()],
   },
 ];
 
@@ -64,12 +77,18 @@ export const listaClasses: IClasse[] = [
 // FUNÇÕES UTILITÁRIAS
 // =====================================================================
 
-export function getClassesDisponiveis(andarMaxAlcancado: number): IClasse[] {
-  return listaClasses.filter((c) => c.andarDesbloqueio <= andarMaxAlcancado);
+export function getClassesDisponiveis(save: SaveData): IClasse[] {
+  return listaClasses.filter((c) => {
+    if (c.condicaoDesbloqueio) return c.condicaoDesbloqueio(save);
+    return c.andarDesbloqueio <= save.andarMaxAlcancado;
+  });
 }
 
-export function getClassesBloqueadas(andarMaxAlcancado: number): IClasse[] {
-  return listaClasses.filter((c) => c.andarDesbloqueio > andarMaxAlcancado);
+export function getClassesBloqueadas(save: SaveData): IClasse[] {
+  return listaClasses.filter((c) => {
+    if (c.condicaoDesbloqueio) return !c.condicaoDesbloqueio(save);
+    return c.andarDesbloqueio > save.andarMaxAlcancado;
+  });
 }
 
 export function aplicarClasse(jogador: mainCharacter, classe: IClasse): void {

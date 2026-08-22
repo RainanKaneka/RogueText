@@ -3,7 +3,7 @@ import { enemy, battleEnemies } from "./enemies";
 import { listaConsumiveis, listaArmas, abrirBau, bauDoAndar } from "./artefacts";
 import { sortearTresHabilidades } from "./actions";
 import { getClassesDisponiveis, getClassesBloqueadas, aplicarClasse } from "./classes";
-import { lerSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras } from "./saveData";
+import { lerSave, salvarSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras, desbloquearFlag } from "./saveData";
 import { initMusic, playMusic } from "./music.js";
 import { showParryBar, setParryWindowBonus } from "./parry.js";
 
@@ -35,6 +35,7 @@ type GameState = "LOBBY" | "LOJA" | "CLASSES" | "SELECAO_CLASSE" | "EQUIPAMENTO_
 let estadoAtual: GameState = "LOBBY";
 let jogador: mainCharacter;
 let inimigosAtuais: enemy[] = [];
+let aliadosAtuais: enemy[] = [];
 let andarAtual: number = 1;
 let salaAtual: number = 0;
 let logMensagem: string = "Bem-vindo ao RogueText!";
@@ -108,8 +109,8 @@ function render() {
 
   if (estadoAtual === "CLASSES") {
     const save = lerSave();
-    const classesDisp = getClassesDisponiveis(save.andarMaxAlcancado);
-    const classesBloq = getClassesBloqueadas(save.andarMaxAlcancado);
+    const classesDisp = getClassesDisponiveis(save);
+    const classesBloq = getClassesBloqueadas(save);
 
     let html = `<h2>Classes Disponíveis</h2>`;
     html += `<div style="display:flex; flex-direction:column; gap:10px; margin-bottom: 20px;">`;
@@ -124,9 +125,10 @@ function render() {
     if (classesBloq.length > 0) {
       html += `<h2>Classes Bloqueadas</h2>`;
       classesBloq.forEach(c => {
+        const reqStr = c.mensagemRequisito || `Alcançar Andar ${c.andarDesbloqueio}`;
         html += `<div style="border: 1px solid #444; padding: 10px; border-radius: 4px; opacity: 0.6;">
                    <h3 style="margin-top:0; color: #888;">???</h3>
-                   <span style="font-size:0.8rem; color:#888;">Requisito: Alcançar Andar ${c.andarDesbloqueio}</span>
+                   <span style="font-size:0.8rem; color:#888;">Requisito: ${reqStr}</span>
                  </div>`;
       });
     }
@@ -385,8 +387,8 @@ function render() {
 
   if (estadoAtual === "SELECAO_CLASSE") {
     const save = lerSave();
-    const disponiveis = getClassesDisponiveis(save.andarMaxAlcancado);
-    const bloqueadas = getClassesBloqueadas(save.andarMaxAlcancado);
+    const disponiveis = getClassesDisponiveis(save);
+    const bloqueadas = getClassesBloqueadas(save);
 
     let html = `<h2>Selecione sua Classe</h2><div class="action-buttons">`;
     disponiveis.forEach((classe, idx) => {
@@ -515,6 +517,25 @@ function render() {
       `;
     });
     htmlHUD += `</div>`;
+
+    if (aliadosAtuais.length > 0) {
+      htmlHUD += `<div class="hud-container" style="border-color: #9c36b5; margin-top: 10px;">`;
+      htmlHUD += `<h4 style="color: #9c36b5; margin: 0 0 5px 0;">Seus Aliados (Mortos-Vivos)</h4>`;
+      aliadosAtuais.forEach((aliado, idx) => {
+        const vidaAtual = Math.max(0, Math.floor(aliado.life));
+        const porcentagemVida = Math.max(0, (aliado.life / aliado.maxLife) * 100);
+        htmlHUD += `
+          <div class="hud-row">
+            <span style="color: #9c36b5;">[Aliado] ${aliado.name} (Dano: ${aliado.attackPower})</span>
+          </div>
+          <div class="bar-container" style="margin-bottom: 5px;">
+            <div class="bar-fill" style="background-color: #9c36b5; width: ${porcentagemVida}%"></div>
+            <div class="bar-text">${vidaAtual}/${aliado.maxLife}</div>
+          </div>
+        `;
+      });
+      htmlHUD += `</div>`;
+    }
   }
 
   // Log de Ação
@@ -754,6 +775,11 @@ function escolherAlvoAtaque() {
 function atacarInimigo(alvoIdx: number) {
   const alvo = inimigosAtuais[alvoIdx]!;
   let danoBase = jogador.danoComArma();
+  const mortosVivos = ["Zumbi", "Esqueleto", "Múmia", "Vampiro", "Necromante", "Ghoul", "Lich", "ArquLich"];
+  const temDominioDaMorte = jogador.skills.some(s => s.nome === "Domínio da Morte");
+  if (temDominioDaMorte && mortosVivos.includes(alvo.name)) {
+    danoBase = Math.floor(danoBase * 1.5);
+  }
 
   // Fúria Descontrolada penalidade: -15% dano
   if (furiaPenalidadeAtiva) danoBase = Math.floor(danoBase * 0.85);
@@ -785,11 +811,10 @@ function atacarInimigo(alvoIdx: number) {
   else if (isCrit) msg = `⚡ CRÍTICO! ` + msg;
   if (temRaioNegro && isCrit) msg += ` (Raio Negro: ${(critTotal * 100).toFixed(0)}% crit — streak ${raioNegroStack})`;
   if (furiaPenalidadeAtiva) msg += ` [ressaca -15% dano]`;
+  if (temDominioDaMorte && mortosVivos.includes(alvo.name)) msg += ` [Domínio da Morte +50% dano]`;
 
   if (alvo.life <= 0) {
-    msg += ` ${alvo.name} foi derrotado (+${alvo.goldReward}G)!`;
-    jogador.experience += alvo.xpReward;
-    jogador.gold += alvo.goldReward;
+    msg += ` ${alvo.name} foi derrotado!`;
   }
 
   opcoesAcao = [];
@@ -859,8 +884,89 @@ function tentarFugir() {
   }
 }
 
+function processarMortes(): boolean {
+  let mortos = false;
+  const temNecromante = jogador.skills.some(s => s.nome === "Domínio da Morte");
+
+  for (let i = inimigosAtuais.length - 1; i >= 0; i--) {
+    const alvo = inimigosAtuais[i]!;
+    if (alvo.life <= 0) {
+      mortos = true;
+      jogador.experience += alvo.xpReward;
+      jogador.gold += alvo.goldReward;
+
+      // Necromante Revive (20% de chance + INT * 1%)
+      if (temNecromante) {
+        const chanceRevive = 0.20 + jogador.intelligence * 0.01;
+        if (Math.random() < chanceRevive) {
+          const revivido = new enemy(`Fantasma de ${alvo.name}`, alvo.attackPower, Math.floor(alvo.maxLife * 0.5));
+          aliadosAtuais.push(revivido);
+        }
+      }
+
+      inimigosAtuais.splice(i, 1);
+    }
+  }
+  return mortos;
+}
+
 function turnoInimigo() {
-  inimigosAtuais = inimigosAtuais.filter(i => i.life > 0);
+  processarMortes();
+  if (inimigosAtuais.length === 0) {
+    vencerBatalha();
+    return;
+  }
+
+  // --- FASE ALIADOS ---
+  if (aliadosAtuais.length > 0) {
+    aliadosAtuais = aliadosAtuais.filter(a => a.life > 0);
+    if (aliadosAtuais.length > 0) {
+      let logAliados = ``;
+      aliadosAtuais.forEach(aliado => {
+        const alvo = inimigosAtuais[Math.floor(Math.random() * inimigosAtuais.length)]!;
+        alvo.life -= aliado.attackPower;
+        logAliados += `👻 Seu ${aliado.name} ataca ${alvo.name} por ${aliado.attackPower} dano!\n`;
+      });
+
+      atualizarLog(logAliados.trim(), () => {
+        setTimeout(() => faseBardo(), 800);
+      });
+      return;
+    }
+  }
+
+  faseBardo();
+}
+
+function faseBardo() {
+  processarMortes();
+  if (inimigosAtuais.length === 0) {
+    vencerBatalha();
+    return;
+  }
+
+  const temBardo = jogador.skills.some(s => s.nome === "Encanto do Bardo");
+  const chanceEncanto = 0.05 + jogador.luck * 0.01;
+  
+  if (temBardo && Math.random() < chanceEncanto) {
+    const alvoIdx = Math.floor(Math.random() * inimigosAtuais.length);
+    const atacante = inimigosAtuais[alvoIdx]!;
+    const alvoReal = inimigosAtuais.length > 1 ? inimigosAtuais[(alvoIdx + 1) % inimigosAtuais.length]! : atacante;
+    const dano = atacante.attackPower;
+    alvoReal.life -= dano;
+    
+    const encantoLog = `🎵 Encanto do Bardo! ${atacante.name} enlouquece e ataca ${alvoReal.name} por ${dano} de dano!`;
+    atualizarLog(encantoLog, () => {
+      setTimeout(() => faseAtaqueInimigos(), 800);
+    });
+    return;
+  }
+
+  faseAtaqueInimigos();
+}
+
+function faseAtaqueInimigos() {
+  processarMortes();
   if (inimigosAtuais.length === 0) {
     vencerBatalha();
     return;
@@ -913,6 +1019,7 @@ function turnoInimigo() {
 }
 
 function vencerBatalha() {
+  aliadosAtuais = []; // Limpa os aliados invocados (não persistem)
   // Fúria Descontrolada: se estava ativa, ativar penalidade pro próximo combate
   const furiaEraAtiva = jogador.activeBuffs.some(b => b.name === "Fúria Descontrolada");
   if (furiaEraAtiva) {
@@ -935,6 +1042,12 @@ function vencerBatalha() {
 
   // BOSS (Sala 10): sempre dá baú
   if (salaAtual === 10) {
+    // Check para desbloqueio do Necromante
+    // No andar 4 a sala 10 é o Servo das Sombras
+    if (andarAtual === 4 && jogador.life >= jogador.maxLife / 2) {
+      desbloquearFlag("necromante_unlock");
+    }
+
     const bau = bauDoAndar(andarAtual);
     const recompensa = abrirBau(bau, jogador);
     let msgBau = `🏆 Boss derrotado! Você recebeu um ${bau.nome}!\n`;

@@ -15,7 +15,7 @@ export interface IConsumivel {
   usar: (jogador: mainCharacter) => ActiveBuff | void;
 }
 
-export type ScalingGrade = "S" | "A" | "B" | "C" | "D" | "-";
+export type ScalingGrade = "S" | "A" | "B" | "C" | "D" | "E";
 
 export interface IWeapons {
   name: string;
@@ -41,7 +41,7 @@ const SCALING_MULT: Record<ScalingGrade, number> = {
   B: 0.12,
   C: 0.07,
   D: 0.03,
-  "-": 0,
+  E: 0.01,
 };
 
 const calcDano = (arma: Pick<IWeapons, "damage" | "scaling">, jogador: mainCharacter): number => {
@@ -63,7 +63,7 @@ export const listaArmas: Record<string, IWeapons> = {
     price: 0,
     damage: 18,
     levelRequired: 1,
-    scaling: { strength: "B", dexterity: "C", intelligence: "-" },
+    scaling: { strength: "B", dexterity: "C", intelligence: "E" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
   "Adaga": {
@@ -74,7 +74,7 @@ export const listaArmas: Record<string, IWeapons> = {
     price: 250,
     damage: 20,
     levelRequired: 1,
-    scaling: { strength: "D", dexterity: "C", intelligence: "-" },
+    scaling: { strength: "D", dexterity: "C", intelligence: "E" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
   "Espada Longa": {
@@ -85,7 +85,7 @@ export const listaArmas: Record<string, IWeapons> = {
     price: 250,
     damage: 20,
     levelRequired: 1,
-    scaling: { strength: "C", dexterity: "D", intelligence: "-" },
+    scaling: { strength: "C", dexterity: "D", intelligence: "E" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
   "Cajado de Madeira": {
@@ -96,18 +96,29 @@ export const listaArmas: Record<string, IWeapons> = {
     price: 250,
     damage: 20,
     levelRequired: 2,
-    scaling: { strength: "-", dexterity: "D", intelligence: "C" },
+    scaling: { strength: "E", dexterity: "D", intelligence: "C" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
   "Trompete do Bardo": {
     name: "Trompete do Bardo",
     description: "Um trompete arcano. Escala com sorte.",
     habilidade: undefined,
-    raridade: "COMUM",
-    price: 250,
-    damage: 20,
-    levelRequired: 2,
-    scaling: { strength: "-", dexterity: "D", luck: "C" },
+    raridade: "RARA",
+    price: 1000,
+    damage: 24,
+    levelRequired: 0,
+    scaling: { strength: "E", dexterity: "D", intelligence: "E", luck: "B" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Tomo Antigo": {
+    name: "Tomo Antigo",
+    description: "Um livro antigo. Escala com Inteligência.",
+    habilidade: undefined,
+    raridade: "RARA",
+    price: 1000,
+    damage: 26,
+    levelRequired: 0,
+    scaling: { strength: "E", dexterity: "D", intelligence: "B", luck: "D" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
   "Cajado do Aprendiz": {
@@ -118,7 +129,7 @@ export const listaArmas: Record<string, IWeapons> = {
     price: 1500,
     damage: 28,
     levelRequired: 6,
-    scaling: { strength: "-", dexterity: "D", intelligence: "B" },
+    scaling: { strength: "E", dexterity: "D", intelligence: "B" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
   "Machado Anão": {
@@ -129,7 +140,7 @@ export const listaArmas: Record<string, IWeapons> = {
     price: 1200,
     damage: 45,
     levelRequired: 5,
-    scaling: { strength: "B", dexterity: "-", intelligence: "-" },
+    scaling: { strength: "B", dexterity: "E", intelligence: "E" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
   "Arco Curto": {
@@ -140,7 +151,18 @@ export const listaArmas: Record<string, IWeapons> = {
     price: 1000,
     damage: 24,
     levelRequired: 5,
-    scaling: { strength: "-", dexterity: "B", intelligence: "-" },
+    scaling: { strength: "E", dexterity: "B", intelligence: "E" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Clarinete Sombrio": {
+    name: "Clarinete Sombrio",
+    description: "Um clarinete sombrio. Escala com Sorte e Inteligência.",
+    habilidade: undefined,
+    raridade: "RARA",
+    price: 1250,
+    damage: 20,
+    levelRequired: 5,
+    scaling: { strength: "E", dexterity: "D", intelligence: "B", luck: "C" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
   "Martelo de Guerra": {
@@ -151,7 +173,7 @@ export const listaArmas: Record<string, IWeapons> = {
     price: 8500,
     damage: 50,
     levelRequired: 10,
-    scaling: { strength: "A", dexterity: "C", intelligence: "-" },
+    scaling: { strength: "A", dexterity: "C", intelligence: "E" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
   // === LENDÁRIAS ===
@@ -174,7 +196,7 @@ export const listaArmas: Record<string, IWeapons> = {
     price: 14000,
     damage: 65,
     levelRequired: 8,
-    scaling: { strength: "-", dexterity: "B", intelligence: "A" },
+    scaling: { strength: "E", dexterity: "B", intelligence: "A" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
   // === ÚNICAS ===
@@ -196,8 +218,7 @@ export const listaConsumiveis: Record<string, IConsumivel> = {
     name: "Poção de Cura",
     description: "Recupera 20 pontos de vida",
     usar: (jogador: mainCharacter) => {
-      jogador.life += 20;
-      if (jogador.life > jogador.maxLife) jogador.life = jogador.maxLife;
+      jogador.curar(20);
       console.log(chalk.greenBright(`Você usou Poção de Cura e recuperou 20 de vida!`));
     }
   },
@@ -210,8 +231,7 @@ export const listaConsumiveis: Record<string, IConsumivel> = {
         name: "Cura Gradual",
         duration: 3,
         onTurn: (j: mainCharacter) => {
-          j.life += 10;
-          if (j.life > j.maxLife) j.life = j.maxLife;
+          j.curar(10);
           console.log(chalk.greenBright(`[Efeito] Cura Gradual recuperou 10 de vida! (Vida atual: ${j.life})`));
         }
       };

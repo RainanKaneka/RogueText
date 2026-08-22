@@ -124,7 +124,7 @@ export class Cura implements Habilidade {
     const curaBase = 20;
     const bonusInt = calcBonusAtributo(jogador.intelligence, 0.12);
     const curaTotal = curaBase + bonusInt;
-    jogador.life = Math.min(jogador.life + curaTotal, jogador.maxLife);
+    jogador.curar(curaTotal);
     console.log(chalk.greenBright(`💚 Você se curou restaurando ${curaTotal} de vida! (Bônus INT: +${bonusInt})`));
     return true;
   }
@@ -147,7 +147,7 @@ export class DrenarVida implements Habilidade {
     const bonusInt = calcBonusAtributo(jogador.intelligence, 0.10);
     const cura = Math.floor(dano / 2 + bonusInt);
     inimigos[alvo]!.life -= dano;
-    jogador.life = Math.min(jogador.life + cura, jogador.maxLife);
+    jogador.curar(cura);
     console.log(chalk.magentaBright(`🩸 Você drena ${inimigos[alvo]!.name}! Dano: ${dano} (Bônus STR: +${bonusStr}) | Cura: ${cura} (Bônus INT: +${bonusInt})`));
     return true;
   }
@@ -324,6 +324,22 @@ export class Evasivo implements Habilidade {
   }
 }
 
+export class EncantoDoBardo implements Habilidade {
+  nome = "Encanto do Bardo";
+  descricao = "Passiva Exclusiva. No final do seu turno, há chance de encantar um inimigo (ele atacará os próprios aliados). Curas recebidas são 1.25x mais efetivas.";
+  tipo = "PASSIVA" as const;
+  raridade = "LENDARIA" as const;
+  usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean { return true; }
+}
+
+export class DominioDaMorte implements Habilidade {
+  nome = "Domínio da Morte";
+  descricao = "Passiva Exclusiva. Causa 1.5x de dano contra mortos-vivos. Além disso, inimigos mortos podem reviver como seus aliados.";
+  tipo = "PASSIVA" as const;
+  raridade = "LENDARIA" as const;
+  usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean { return true; }
+}
+
 export const TODAS_HABILIDADES: Habilidade[] = [
   new GolpeForte(),
   new BolaDeFogo(),
@@ -337,6 +353,8 @@ export const TODAS_HABILIDADES: Habilidade[] = [
   new FuriaDescontrolada(),
   new CancaoEnlouquecedora(),
   new Evasivo(),
+  new EncantoDoBardo(),
+  new DominioDaMorte(),
 ];
 
 // 5. O ALGORITMO DE SORTEIO (GACHA)
