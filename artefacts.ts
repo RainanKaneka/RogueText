@@ -280,6 +280,7 @@ export const listaArmaduras: Record<string, IArmadura> = {
     price: 800,
     bonusVida: 60,
     bonusDefesa: 5,
+    receita: { "Placa de Ferro Assombrada": 3, "Rebite Encantado": 2 },
   },
   "Armadura de Placas": {
     name: "Armadura de Placas",
@@ -288,6 +289,7 @@ export const listaArmaduras: Record<string, IArmadura> = {
     price: 2500,
     bonusVida: 120,
     bonusDefesa: 12,
+    receita: { "Cascalho Endurecido": 5, "Placa de Ferro Assombrada": 4, "Cinzas Sacrílegas": 2 },
     passiva: {
       nome: "Bastião",
       descricao: "Enquanto com mais de 50% de vida, recebe 10% menos dano.",
@@ -302,6 +304,7 @@ export const listaArmaduras: Record<string, IArmadura> = {
     price: 900,
     bonusVida: 20,
     bonusDefesa: 2,
+    receita: { "Resíduo de Alquimia": 4, "Essência Sulfurosa": 3 },
     passiva: {
       nome: "Mente Afiada",
       descricao: "+3 de Inteligência durante a run.",
@@ -316,6 +319,7 @@ export const listaArmaduras: Record<string, IArmadura> = {
     price: 750,
     bonusVida: 25,
     bonusDefesa: 3,
+    receita: { "Couro Rasgado": 5, "Pelo Misto Impregnado": 2 },
     passiva: {
       nome: "Furtivo",
       descricao: "+3 de Destreza durante a run.",
@@ -386,6 +390,7 @@ export const listaAcessorios: Record<string, IAcessorio> = {
     raridade: "RARA",
     price: 700,
     bonusStats: { intelligence: 3 },
+    receita: { "Núcleo Biológico Instável": 3, "Essência Sulfurosa": 2 },
   },
   "Bracelete do Arqueiro": {
     name: "Bracelete do Arqueiro",
@@ -393,6 +398,7 @@ export const listaAcessorios: Record<string, IAcessorio> = {
     raridade: "RARA",
     price: 700,
     bonusStats: { dexterity: 3 },
+    receita: { "Tendão Fino": 4, "Garra das Sombras": 2 },
   },
   "Amuleto da Resistência": {
     name: "Amuleto da Resistência",
@@ -400,6 +406,7 @@ export const listaAcessorios: Record<string, IAcessorio> = {
     raridade: "RARA",
     price: 600,
     bonusStats: { defense: 4 },
+    receita: { "Lasca de Granito Rúnico": 4, "Pelo Umbrático": 2 },
   },
   "Anel Polivalente": {
     name: "Anel Polivalente",
@@ -407,6 +414,7 @@ export const listaAcessorios: Record<string, IAcessorio> = {
     raridade: "EPICA",
     price: 1500,
     bonusStats: { strength: 1, dexterity: 1, intelligence: 1, luck: 1, defense: 1 },
+    receita: { "Fragmento de Rosário Profano": 2, "Ferrão de Serpente": 2, "Escama de Serpente Venenosa": 1 },
   },
   // ── Crafting ─────────────────────────
   "Anel da Sangria": {

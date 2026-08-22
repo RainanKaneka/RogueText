@@ -31,7 +31,7 @@ const bossesPorAndar: { [key: number]: string[] } = {
 };
 
 // Estado da Aplicação
-type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MATERIAIS";
+type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA";
 
 let estadoAtual: GameState = "LOBBY";
 let jogador: mainCharacter;
@@ -104,7 +104,7 @@ function render() {
         <button class="btn-lobby" id="btn-nova-run">Nova Run</button>
         <button class="btn-lobby" id="btn-loja">Loja</button>
         <button class="btn-lobby" id="btn-ferreiro">Ferreiro</button>
-        <button class="btn-lobby" id="btn-materiais">Materiais</button>
+        <button class="btn-lobby" id="btn-mochila">Mochila</button>
         <button class="btn-lobby" id="btn-classes">Classes</button>
         <button class="btn-lobby" id="btn-sobre">Sobre o Jogo</button>
       </div>`;
@@ -113,7 +113,7 @@ function render() {
     document.getElementById("btn-loja")!.onclick = () => { estadoAtual = "LOJA"; render(); };
     document.getElementById("btn-ferreiro")!.onclick = () => { estadoAtual = "FERREIRO"; render(); };
     document.getElementById("btn-sobre")!.onclick = () => { estadoAtual = "SOBRE"; render(); };
-    document.getElementById("btn-materiais")!.onclick = () => { estadoAtual = "MATERIAIS"; render(); };
+    document.getElementById("btn-mochila")!.onclick = () => { estadoAtual = "MOCHILA"; render(); };
 
     document.querySelectorAll(".btn-lobby").forEach(btn => {
       btn.addEventListener("mouseenter", () => playSfx("hover"));
@@ -401,39 +401,110 @@ function render() {
     return;
   }
 
-  if (estadoAtual === "MATERIAIS") {
+  if (estadoAtual === "MOCHILA") {
+    const save = lerSave();
     const drops = lerDrops();
-    const nomes = Object.keys(drops);
+    const dropNomes = Object.keys(drops);
 
-    let listaHTML = "";
-    if (nomes.length === 0) {
-      listaHTML = `<p style="color: #aaa; text-align: center; margin-top: 20px;">Nenhum material coletado ainda.<br>Derrote criaturas para obter materiais de crafting!</p>`;
-    } else {
-      // Agrupar por tier via dropsDB import
-      listaHTML = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">`;
-      nomes.sort().forEach(nome => {
-        listaHTML += `
-          <div style="background: rgba(255,255,255,0.05); border: 1px solid #444; border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="color: #e0c88a;">${nome}</span>
-            <span style="background: #333; color: #fff; border-radius: 4px; padding: 2px 8px; font-size: 0.9rem;">x${drops[nome]}</span>
-          </div>`;
-      });
-      listaHTML += `</div>`;
+    // Coletar todas as armas disponíveis
+    const armasBase = ["Espada Quebrada"];
+    const todasArmas = [...new Set([...armasBase, ...save.armasExtras])]
+      .map(n => listaArmas[n])
+      .filter(Boolean);
+
+    // Coletar todas as armaduras disponíveis
+    const armadurasBase = ["Robes Rasgados", "Vestes de Couro"];
+    const todasArmaduras = [...new Set([...armadurasBase, ...save.armadurasExtras])]
+      .map(n => listaArmaduras[n])
+      .filter(Boolean);
+
+    // Coletar todos os acessórios disponíveis
+    const acessoriosBase = ["Sem Acessório", "Amuleto da Vitalidade", "Anel da Força", "Anel da Sorte"];
+    const todosAcessorios = [...new Set([...acessoriosBase, ...save.acessoriosExtras])]
+      .map(n => listaAcessorios[n])
+      .filter(Boolean);
+
+    // Coletar todos os consumíveis
+    const todosConsumiveis = save.consumiveisExtras
+      .map(n => listaConsumiveis[n])
+      .filter(Boolean);
+
+    const rarColor: Record<string, string> = {
+      "COMUM": "#aaa",
+      "RARA": "#339af0",
+      "EPICA": "#cc5de8",
+      "LENDARIA": "#fcc419"
+    };
+
+    function cardItem(nome: string, sub: string, rar: string) {
+      const cor = rarColor[rar] ?? "#aaa";
+      return `
+        <div style="background:rgba(255,255,255,0.05); border:1px solid #444; border-radius:6px; padding:8px 12px;">
+          <div style="color:${cor}; font-weight:bold; font-size:0.9rem;">${nome}</div>
+          <div style="color:#888; font-size:0.8rem; margin-top:2px;">${sub}</div>
+        </div>`;
+    }
+
+    const armasHTML = todasArmas.length > 0
+      ? todasArmas.map(a => cardItem(a!.name, `${a!.damage} dano base | ${a!.raridade}`, a!.raridade)).join("")
+      : `<p style="color:#666; font-size:0.85rem;">Nenhuma arma disponível.</p>`;
+
+    const armadurasHTML = todasArmaduras.length > 0
+      ? todasArmaduras.map(a => cardItem(a!.name, `+${a!.bonusVida}HP +${a!.bonusDefesa}DEF${a!.passiva ? ` | ${a!.passiva.nome}` : ""}`, a!.raridade)).join("")
+      : `<p style="color:#666; font-size:0.85rem;">Nenhuma armadura disponível.</p>`;
+
+    const acessoriosHTML = todosAcessorios.length > 0
+      ? todosAcessorios.map(a => {
+        const bonus = a!.bonusStats
+          ? Object.entries(a!.bonusStats).map(([k, v]) => `+${v} ${k}`).join(" ")
+          : (a!.passiva?.nome ?? "Sem bônus");
+        return cardItem(a!.name, bonus, a!.raridade);
+      }).join("")
+      : `<p style="color:#666; font-size:0.85rem;">Nenhum acessório disponível.</p>`;
+
+    const consumiveisHTML = todosConsumiveis.length > 0
+      ? todosConsumiveis.map(c => cardItem(c!.name, c!.description ?? "", (c as any).raridade ?? "COMUM")).join("")
+      : `<p style="color:#666; font-size:0.85rem;">Nenhum consumível no estoque.</p>`;
+
+    const materiaisHTML = dropNomes.length > 0
+      ? `<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;">${dropNomes.sort().map(nome =>
+        `<div style="background:rgba(255,255,255,0.04); border:1px solid #3a3a3a; border-radius:5px; padding:6px 10px; display:flex; justify-content:space-between; align-items:center;">
+              <span style="color:#e0c88a; font-size:0.85rem;">${nome}</span>
+              <span style="background:#333; color:#fff; border-radius:4px; padding:1px 7px; font-size:0.85rem;">x${drops[nome]}</span>
+            </div>`
+      ).join("")
+      }</div>`
+      : `<p style="color:#666; font-size:0.85rem;">Nenhum material coletado ainda.</p>`;
+
+    function secao(titulo: string, icone: string, cor: string, conteudo: string) {
+      return `
+        <div style="margin-bottom:24px;">
+          <h3 style="color:${cor}; margin:0 0 10px 0; font-size:1.1rem; border-bottom:1px solid #333; padding-bottom:6px;">${icone} ${titulo}</h3>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">${conteudo}</div>
+        </div>`;
     }
 
     app.innerHTML = `
-      <div class="hud-container" style="text-align: left; max-width: 700px; margin: 0 auto; color: #ddd;">
-        <h2 class="hud-title" style="text-align: center; font-size: 2rem;">⚒️ Materiais de Crafting</h2>
-        <p style="text-align: center; color: #888; font-size: 0.9rem;">Materiais coletados ao derrotar inimigos. Futuramente usados no Ferreiro.</p>
-        <hr style="border-color: #444; margin: 15px 0;">
-        <p style="text-align: right; color: #aaa; font-size: 0.85rem;">Total: <strong style="color: #e0c88a;">${nomes.length} tipo(s)</strong></p>
-        ${listaHTML}
-        <div style="text-align: center; margin-top: 30px;">
-          <button class="btn-lobby" id="btn-voltar-lobby-mat">Voltar ao Lobby</button>
+      <div class="hud-container" style="text-align:left; max-width:800px; margin:0 auto; color:#ddd;">
+        <h2 class="hud-title" style="text-align:center; font-size:2rem; margin-bottom:4px;">🎒 Mochila</h2>
+        <p style="text-align:center; color:#666; font-size:0.85rem; margin-bottom:20px;">Todos os seus itens e materiais.</p>
+
+        ${secao("Armas", "⚔️", "#ffd43b", armasHTML)}
+        ${secao("Armaduras", "🛡️", "#74c0fc", armadurasHTML)}
+        ${secao("Acessórios", "💍", "#a9e34b", acessoriosHTML)}
+        ${secao("Consumíveis", "🧪", "#ff8787", consumiveisHTML)}
+
+        <div style="margin-bottom:24px;">
+          <h3 style="color:#e0c88a; margin:0 0 10px 0; font-size:1.1rem; border-bottom:1px solid #333; padding-bottom:6px;">⚒️ Materiais de Crafting</h3>
+          ${materiaisHTML}
+        </div>
+
+        <div style="text-align:center; margin-top:20px;">
+          <button class="btn-lobby" id="btn-voltar-mochila">Voltar ao Lobby</button>
         </div>
       </div>
     `;
-    document.getElementById("btn-voltar-lobby-mat")!.onclick = () => { estadoAtual = "LOBBY"; render(); };
+    document.getElementById("btn-voltar-mochila")!.onclick = () => { estadoAtual = "LOBBY"; render(); };
     return;
   }
 
