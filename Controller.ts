@@ -1,10 +1,11 @@
 import { mainCharacter } from "./mainCharacter";
 import { enemy, battleEnemies } from "./enemies";
-import { listaConsumiveis, listaArmas, abrirBau, bauDoAndar } from "./artefacts";
+import { listaConsumiveis, listaArmas, listaArmaduras, listaAcessorios, abrirBau, bauDoAndar } from "./artefacts";
 import { sortearTresHabilidades } from "./actions";
 import { getClassesDisponiveis, getClassesBloqueadas, aplicarClasse } from "./classes";
-import { lerSave, salvarSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras, desbloquearFlag } from "./saveData";
-import { initMusic, playMusic } from "./music.js";
+import { lerSave, salvarSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras, desbloquearFlag, adicionarDrop, lerDrops, salvarLoadout, lerLoadout, removerItemExtra, consumirDrops, adicionarArmaduraExtra, adicionarAcessorioExtra } from "./saveData";
+import { rolarDrops } from "./drops.js";
+import { initMusic, playMusic, playSfx, updateHeartbeat, setMusicVolume, setSfxVolume, musicVolume, sfxVolume } from "./music.js";
 import { showParryBar, setParryWindowBonus } from "./parry.js";
 
 // Dados Globais
@@ -30,7 +31,7 @@ const bossesPorAndar: { [key: number]: string[] } = {
 };
 
 // Estado da Aplicação
-type GameState = "LOBBY" | "LOJA" | "CLASSES" | "SELECAO_CLASSE" | "EQUIPAMENTO_INICIAL" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER";
+type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MATERIAIS";
 
 let estadoAtual: GameState = "LOBBY";
 let jogador: mainCharacter;
@@ -91,18 +92,33 @@ function atualizarLog(msg: string, onComplete?: () => void) {
 function render() {
   app.innerHTML = "";
 
+  if (typeof jogador !== "undefined" && jogador) {
+    updateHeartbeat(jogador.life / jogador.maxLife);
+  } else {
+    updateHeartbeat(1); // turn off if not initialized
+  }
+
   if (estadoAtual === "LOBBY") {
     app.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:10px;">
         <button class="btn-lobby" id="btn-nova-run">Nova Run</button>
-        <button class="btn-lobby" id="btn-classes">Classes</button>
         <button class="btn-lobby" id="btn-loja">Loja</button>
+        <button class="btn-lobby" id="btn-ferreiro">Ferreiro</button>
+        <button class="btn-lobby" id="btn-materiais">Materiais</button>
+        <button class="btn-lobby" id="btn-classes">Classes</button>
         <button class="btn-lobby" id="btn-sobre">Sobre o Jogo</button>
       </div>`;
     document.getElementById("btn-nova-run")!.onclick = () => iniciarNovaRun();
     document.getElementById("btn-classes")!.onclick = () => { estadoAtual = "CLASSES"; render(); };
     document.getElementById("btn-loja")!.onclick = () => { estadoAtual = "LOJA"; render(); };
+    document.getElementById("btn-ferreiro")!.onclick = () => { estadoAtual = "FERREIRO"; render(); };
     document.getElementById("btn-sobre")!.onclick = () => { estadoAtual = "SOBRE"; render(); };
+    document.getElementById("btn-materiais")!.onclick = () => { estadoAtual = "MATERIAIS"; render(); };
+
+    document.querySelectorAll(".btn-lobby").forEach(btn => {
+      btn.addEventListener("mouseenter", () => playSfx("hover"));
+    });
+
     playMusic("title");
     return;
   }
@@ -121,7 +137,7 @@ function render() {
                  <span style="font-size:0.8rem; color:#888;">Arma Inicial: ${c.armaInicial}</span>
                </div>`;
     });
-    
+
     if (classesBloq.length > 0) {
       html += `<h2>Classes Bloqueadas</h2>`;
       classesBloq.forEach(c => {
@@ -132,7 +148,7 @@ function render() {
                  </div>`;
       });
     }
-    
+
     html += `</div>`;
     html += `<button class="btn-action" id="btn-classes-voltar">Voltar</button>`;
     app.innerHTML = html;
@@ -385,6 +401,145 @@ function render() {
     return;
   }
 
+  if (estadoAtual === "MATERIAIS") {
+    const drops = lerDrops();
+    const nomes = Object.keys(drops);
+
+    let listaHTML = "";
+    if (nomes.length === 0) {
+      listaHTML = `<p style="color: #aaa; text-align: center; margin-top: 20px;">Nenhum material coletado ainda.<br>Derrote criaturas para obter materiais de crafting!</p>`;
+    } else {
+      // Agrupar por tier via dropsDB import
+      listaHTML = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">`;
+      nomes.sort().forEach(nome => {
+        listaHTML += `
+          <div style="background: rgba(255,255,255,0.05); border: 1px solid #444; border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #e0c88a;">${nome}</span>
+            <span style="background: #333; color: #fff; border-radius: 4px; padding: 2px 8px; font-size: 0.9rem;">x${drops[nome]}</span>
+          </div>`;
+      });
+      listaHTML += `</div>`;
+    }
+
+    app.innerHTML = `
+      <div class="hud-container" style="text-align: left; max-width: 700px; margin: 0 auto; color: #ddd;">
+        <h2 class="hud-title" style="text-align: center; font-size: 2rem;">⚒️ Materiais de Crafting</h2>
+        <p style="text-align: center; color: #888; font-size: 0.9rem;">Materiais coletados ao derrotar inimigos. Futuramente usados no Ferreiro.</p>
+        <hr style="border-color: #444; margin: 15px 0;">
+        <p style="text-align: right; color: #aaa; font-size: 0.85rem;">Total: <strong style="color: #e0c88a;">${nomes.length} tipo(s)</strong></p>
+        ${listaHTML}
+        <div style="text-align: center; margin-top: 30px;">
+          <button class="btn-lobby" id="btn-voltar-lobby-mat">Voltar ao Lobby</button>
+        </div>
+      </div>
+    `;
+    document.getElementById("btn-voltar-lobby-mat")!.onclick = () => { estadoAtual = "LOBBY"; render(); };
+    return;
+  }
+
+  if (estadoAtual === "FERREIRO") {
+    const drops = lerDrops();
+    const save = lerSave();
+    const craftableArmaduras = Object.values(listaArmaduras).filter((a: import("./artefacts").IArmadura) => a.receita);
+    const craftableAcessorios = Object.values(listaAcessorios).filter((a: import("./artefacts").IAcessorio) => a.receita);
+
+    function checkPodeCraftar(receita: Record<string, number>): boolean {
+      for (const [mat, qtdReq] of Object.entries(receita)) {
+        if ((drops[mat] ?? 0) < qtdReq) return false;
+      }
+      return true;
+    }
+
+    function formataReceita(receita: Record<string, number>): string {
+      return Object.entries(receita).map(([mat, qtdReq]) => {
+        const qtdPossui = drops[mat] ?? 0;
+        const color = qtdPossui >= qtdReq ? "#a9e34b" : "#ff6b6b";
+        return `<span style="color:${color}">${mat}: ${qtdPossui}/${qtdReq}</span>`;
+      }).join(" | ");
+    }
+
+    let html = `
+      <div class="hud-container" style="text-align: left; max-width: 800px; margin: 0 auto; color: #ddd;">
+        <h2 class="hud-title" style="text-align: center; font-size: 2rem;">🔨 Fornalha do Ferreiro</h2>
+        <p style="text-align: center; color: #888; font-size: 0.9rem;">Crie novos equipamentos poderosos usando materiais dos monstros.</p>
+        
+        <h3 style="color:#74c0fc; margin-top: 20px;">🛡️ Armaduras</h3>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+    `;
+    craftableArmaduras.forEach((a, idx) => {
+      const jaTem = save.armadurasExtras.includes(a.name);
+      const podeCraftar = !jaTem && checkPodeCraftar(a.receita!);
+      html += `
+        <div style="background: rgba(255,255,255,0.05); border: 1px solid #444; border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <strong style="color: #ffd43b;">${a.name}</strong><br>
+            <small style="color: #bbb;">${a.description}</small><br>
+            <small style="font-size: 0.8rem;">Receita: ${formataReceita(a.receita!)}</small>
+          </div>
+          <button id="btn-craft-arm-${idx}" class="btn-lobby" style="padding: 8px 15px; font-size: 0.9rem;" ${!podeCraftar ? "disabled" : ""}>
+            ${jaTem ? "Já Possui" : "Forjar"}
+          </button>
+        </div>
+      `;
+    });
+
+    html += `
+        </div>
+        <h3 style="color:#a9e34b; margin-top: 20px;">💍 Acessórios</h3>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+    `;
+    craftableAcessorios.forEach((a, idx) => {
+      const jaTem = save.acessoriosExtras.includes(a.name);
+      const podeCraftar = !jaTem && checkPodeCraftar(a.receita!);
+      html += `
+        <div style="background: rgba(255,255,255,0.05); border: 1px solid #444; border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <strong style="color: #ffd43b;">${a.name}</strong><br>
+            <small style="color: #bbb;">${a.description}</small><br>
+            <small style="font-size: 0.8rem;">Receita: ${formataReceita(a.receita!)}</small>
+          </div>
+          <button id="btn-craft-acc-${idx}" class="btn-lobby" style="padding: 8px 15px; font-size: 0.9rem;" ${!podeCraftar ? "disabled" : ""}>
+            ${jaTem ? "Já Possui" : "Forjar"}
+          </button>
+        </div>
+      `;
+    });
+
+    html += `
+        </div>
+        <div style="text-align: center; margin-top: 30px;">
+          <button class="btn-lobby" id="btn-voltar-ferreiro">Voltar ao Lobby</button>
+        </div>
+      </div>
+    `;
+
+    app.innerHTML = html;
+
+    craftableArmaduras.forEach((a, idx) => {
+      const btn = document.getElementById(`btn-craft-arm-${idx}`);
+      if (btn && !btn.hasAttribute("disabled")) {
+        btn.onclick = () => {
+          consumirDrops(a.receita!);
+          adicionarArmaduraExtra(a.name);
+          render();
+        };
+      }
+    });
+    craftableAcessorios.forEach((a, idx) => {
+      const btn = document.getElementById(`btn-craft-acc-${idx}`);
+      if (btn && !btn.hasAttribute("disabled")) {
+        btn.onclick = () => {
+          consumirDrops(a.receita!);
+          adicionarAcessorioExtra(a.name);
+          render();
+        };
+      }
+    });
+
+    document.getElementById("btn-voltar-ferreiro")!.onclick = () => { estadoAtual = "LOBBY"; render(); };
+    return;
+  }
+
   if (estadoAtual === "SELECAO_CLASSE") {
     const save = lerSave();
     const disponiveis = getClassesDisponiveis(save);
@@ -412,7 +567,9 @@ function render() {
     disponiveis.forEach((classe, idx) => {
       document.getElementById(`btn-classe-${idx}`)!.onclick = () => {
         aplicarClasse(jogador, classe);
-        estadoAtual = "EQUIPAMENTO_INICIAL";
+        estadoAtual = "EXPLORACAO";
+        opcoesAcao = [{ texto: "Iniciar Jornada", acao: () => avancarSala() }];
+        atualizarLog(`Você escolheu a classe ${jogador.classe}! Boa sorte!`);
         render();
       };
     });
@@ -427,32 +584,106 @@ function render() {
     return;
   }
 
-  if (estadoAtual === "EQUIPAMENTO_INICIAL") {
-    let html = `<h2>Escolha sua Arma Inicial</h2><div class="action-buttons" style="flex-direction:column; align-items:center;">`;
+  if (estadoAtual === "SELECAO_LOADOUT") {
+    const save = lerSave();
+    const loadoutAtual = lerLoadout();
 
-    jogador.weaponInventory.forEach((arma, idx) => {
-      html += `<button class="btn-action" id="btn-eq-ini-${idx}">
-        <span class="key-hint">[${idx + 1}]</span> Equipar ${arma.name} (${arma.damage} Dano)
-      </button>`;
-    });
-    html += `</div>`;
-    app.innerHTML = html;
+    // Constroi a lista de armas disponiveis (inicial + desbloqueadas no save)
+    const armasDisponiveis = ["Espada Quebrada", ...save.armasExtras]
+      .filter((name, i, arr) => arr.indexOf(name) === i)
+      .map(name => listaArmas[name])
+      .filter(Boolean) as import("./artefacts").IWeapons[];
 
-    jogador.weaponInventory.forEach((arma, idx) => {
-      document.getElementById(`btn-eq-ini-${idx}`)!.onclick = () => {
-        jogador.equippedWeapon = arma;
-        estadoAtual = "EXPLORACAO";
-        opcoesAcao = [{ texto: "Iniciar Jornada", acao: () => avancarSala() }];
-        atualizarLog(`Você escolheu a classe ${jogador.classe} e equipou ${arma.name}! Boa sorte!`);
-      };
-    });
+    const armadurasBasicas = ["Robes Rasgados", "Vestes de Couro"];
+    const acessoriosBasicos = ["Sem Acessório", "Amuleto da Vitalidade", "Anel da Força", "Anel da Sorte"];
 
-    window.onkeydown = (e) => {
-      const num = parseInt(e.key) - 1;
-      if (num >= 0 && num < jogador.weaponInventory.length) {
-        document.getElementById(`btn-eq-ini-${num}`)?.click();
-      }
+    const armadurasDisponiveis = [...armadurasBasicas, ...save.armadurasExtras]
+      .filter((name, i, arr) => arr.indexOf(name) === i)
+      .map(name => listaArmaduras[name])
+      .filter(Boolean) as import("./artefacts").IArmadura[];
+
+    const acessoriosDisponiveis = [...acessoriosBasicos, ...save.acessoriosExtras]
+      .filter((name, i, arr) => arr.indexOf(name) === i)
+      .map(name => listaAcessorios[name])
+      .filter(Boolean) as import("./artefacts").IAcessorio[];
+
+    let selectedArma = loadoutAtual.arma;
+    let selectedArmadura = loadoutAtual.armadura;
+    let selectedAcessorio = loadoutAtual.acessorio;
+
+    const rarColor: Record<string, string> = {
+      COMUM: "#aaa", RARA: "#4dabf7", EPICA: "#cc5de8", LENDARIA: "#ffd43b", UNICA: "#ff6b6b"
     };
+
+    function renderLoadout() {
+      let html = `
+        <div style="max-width:750px; margin:0 auto; display:flex; flex-direction:column; gap:20px;">
+          <h2 style="text-align:center; margin:0;">⚔️ Configurar Loadout</h2>
+          <p style="text-align:center; color:#888; margin:0;">Escolha seu equipamento antes de entrar na masmorra.</p>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px;">
+            <!-- ARMAS -->
+            <div>
+              <h3 style="color:#ffd43b; margin:0 0 8px 0;">⚔️ Arma</h3>
+              ${armasDisponiveis.map(a => `
+                <button id="lb-arma-${a.name.replace(/\s/g, '_')}" class="btn-action"
+                  style="width:100%; margin-bottom:5px; ${selectedArma === a.name ? 'border-color:#ffd43b; background:rgba(255,212,59,0.15);' : ''}">
+                  <span style="color:${rarColor[a.raridade] ?? '#aaa'};">${a.name}</span><br>
+                  <small>${a.damage} base | ${a.raridade}</small>
+                </button>`).join('')}
+            </div>
+            <!-- ARMADURAS -->
+            <div>
+              <h3 style="color:#74c0fc; margin:0 0 8px 0;">🛡️ Armadura</h3>
+              ${armadurasDisponiveis.map(a => `
+                <button id="lb-arm-${a.name.replace(/\s/g, '_')}" class="btn-action"
+                  style="width:100%; margin-bottom:5px; ${selectedArmadura === a.name ? 'border-color:#74c0fc; background:rgba(116,192,252,0.15);' : ''}">
+                  <span style="color:${rarColor[a.raridade] ?? '#aaa'};">${a.name}</span><br>
+                  <small>+${a.bonusVida}HP +${a.bonusDefesa}DEF${a.passiva ? ` | ${a.passiva.nome}` : ''}</small>
+                </button>`).join('')}
+            </div>
+            <!-- ACESSORIOS -->
+            <div>
+              <h3 style="color:#a9e34b; margin:0 0 8px 0;">💍 Acessório</h3>
+              ${acessoriosDisponiveis.map(a => `
+                <button id="lb-acc-${a.name.replace(/\s/g, '_')}" class="btn-action"
+                  style="width:100%; margin-bottom:5px; ${selectedAcessorio === a.name ? 'border-color:#a9e34b; background:rgba(169,227,75,0.15);' : ''}">
+                  <span style="color:${rarColor[a.raridade] ?? '#aaa'};">${a.name}</span><br>
+                  <small>${a.bonusStats ? Object.entries(a.bonusStats).map(([k, v]) => `+${v} ${k}`).join(' ') : (a.passiva?.nome ?? 'Sem bônus')}</small>
+                </button>`).join('')}
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px; justify-content:center; margin-top:10px;">
+            <button class="btn-lobby" id="lb-confirmar" style="padding:12px 40px; font-size:1.1rem;">✅ Confirmar e Continuar</button>
+            <button class="btn-lobby" id="lb-voltar" style="padding:12px 20px;">← Voltar ao Lobby</button>
+          </div>
+        </div>
+      `;
+      app.innerHTML = html;
+
+      // Eventos das armas
+      armasDisponiveis.forEach(a => {
+        document.getElementById(`lb-arma-${a.name.replace(/\s/g, '_')}`)!.onclick = () => { selectedArma = a.name; renderLoadout(); };
+      });
+      // Eventos das armaduras
+      armadurasDisponiveis.forEach(a => {
+        document.getElementById(`lb-arm-${a.name.replace(/\s/g, '_')}`)!.onclick = () => { selectedArmadura = a.name; renderLoadout(); };
+      });
+      // Eventos dos acessórios
+      acessoriosDisponiveis.forEach(a => {
+        document.getElementById(`lb-acc-${a.name.replace(/\s/g, '_')}`)!.onclick = () => { selectedAcessorio = a.name; renderLoadout(); };
+      });
+
+      document.getElementById("lb-confirmar")!.onclick = () => {
+        salvarLoadout({ arma: selectedArma, armadura: selectedArmadura, acessorio: selectedAcessorio });
+        aplicarLoadoutAoJogador();
+        estadoAtual = "SELECAO_CLASSE";
+        render();
+      };
+      document.getElementById("lb-voltar")!.onclick = () => { estadoAtual = "LOBBY"; render(); };
+    }
+    renderLoadout();
     return;
   }
 
@@ -490,13 +721,17 @@ function render() {
         <span class="text-gray">Arma: ${jogador.equippedWeapon?.name || "Nenhuma"} (${jogador.danoComArma()} Dano)</span>
         <span class="text-gray">Crítico: ${(jogador.taxaCritica * 100).toFixed(0)}%</span>
       </div>
+      <div class="stats-grid" style="margin-top:4px;">
+        <span style="color:#74c0fc;">🛡️ ${jogador.equippedArmor?.name || "Sem Armadura"}</span>
+        <span style="color:#a9e34b;">💍 ${jogador.equippedAccessory?.name || "Sem Acessório"}</span>
+      </div>
       ${jogador.skills.filter(s => s.tipo === "PASSIVA").length > 0 ? `
       <div style="margin-top:8px; padding-top:6px; border-top: 1px solid #333;">
         <span style="color:#888; font-size:0.85rem;">Passivas: </span>
         ${jogador.skills.filter(s => s.tipo === "PASSIVA").map(s => {
-          const cor = s.raridade === "EPICA" ? "#cc5de8" : s.raridade === "LENDARIA" ? "#fcc419" : s.raridade === "RARA" ? "#339af0" : "#aaa";
-          return `<span style="color:${cor}; font-size:0.85rem; margin-right:10px;" title="${s.descricao}">✨ ${s.nome}</span>`;
-        }).join("")}
+    const cor = s.raridade === "EPICA" ? "#cc5de8" : s.raridade === "LENDARIA" ? "#fcc419" : s.raridade === "RARA" ? "#339af0" : "#aaa";
+    return `<span style="color:${cor}; font-size:0.85rem; margin-right:10px;" title="${s.descricao}">✨ ${s.nome}</span>`;
+  }).join("")}
       </div>` : ""}
     </div>
   `;
@@ -586,8 +821,21 @@ function iniciarNovaRun() {
   furiaSkipouPrimeiroTurno = false;
   andarAtual = 1;
   salaAtual = 0;
-  estadoAtual = "SELECAO_CLASSE";
+  estadoAtual = "SELECAO_LOADOUT";
   render();
+}
+
+function aplicarLoadoutAoJogador() {
+  const loadout = lerLoadout();
+  const arma = listaArmas[loadout.arma];
+  if (arma) {
+    jogador.equippedWeapon = arma;
+    if (!jogador.weaponInventory.includes(arma)) jogador.weaponInventory.push(arma);
+  }
+  const armadura = listaArmaduras[loadout.armadura];
+  if (armadura) jogador.equiparArmadura(armadura);
+  const acessorio = listaAcessorios[loadout.acessorio];
+  if (acessorio) jogador.equiparAcessorio(acessorio);
 }
 
 function avancarSala() {
@@ -647,12 +895,26 @@ function menuBatalhaPrincipal() {
     const goldPerdido = Math.floor(jogador.gold / 2);
     const goldGanho = jogador.gold - goldPerdido;
     adicionarGold(goldGanho);
+    // Perda de itens do loadout na morte (se não forem os básicos)
+    const armadurasBasicas = ["Robes Rasgados", "Vestes de Couro"];
+    const acessoriosBasicos = ["Sem Acessório", "Amuleto da Vitalidade", "Anel da Força", "Anel da Sorte"];
+    if (jogador.equippedWeapon.name !== "Espada Quebrada") {
+      removerItemExtra(jogador.equippedWeapon.name);
+    }
+    if (jogador.equippedArmor && !armadurasBasicas.includes(jogador.equippedArmor.name)) {
+      removerItemExtra(jogador.equippedArmor.name);
+    }
+    if (jogador.equippedAccessory && !acessoriosBasicos.includes(jogador.equippedAccessory.name)) {
+      removerItemExtra(jogador.equippedAccessory.name);
+    }
+
     limparArmasExtras();
     limparConsumiveisExtras();
     // Limpa buff da Fúria se o player morrer
     jogador.activeBuffs = jogador.activeBuffs.filter(b => b.name !== "Fúria Descontrolada");
     furiaPenalidade = false;
     furiaPenalidadeAtiva = false;
+    jogador.removerEquipamentos();
     atualizarLog(`Você foi derrotado! Você extraiu ${goldGanho}G (Perdeu ${goldPerdido}G) e perdeu seus itens!`);
     playMusic("title");
     return;
@@ -805,8 +1067,15 @@ function atacarInimigo(alvoIdx: number) {
   }
 
   alvo.life -= danoFinal;
+  playSfx("hit");
+  let lifesteal = 0;
+  if (jogador._accessoryPassivaAtiva === "Sangria") {
+    lifesteal = Math.floor(danoFinal * 0.1);
+    if (lifesteal > 0) jogador.curar(lifesteal);
+  }
 
   let msg = `Você atacou ${alvo.name} causando ${danoFinal} de dano!`;
+  if (lifesteal > 0) msg += ` (Roubou ${lifesteal} vida)`;
   if (furiaAtivaNow && isCrit) msg = `🔥 CRÍTICO (FÚria)! ` + msg;
   else if (isCrit) msg = `⚡ CRÍTICO! ` + msg;
   if (temRaioNegro && isCrit) msg += ` (Raio Negro: ${(critTotal * 100).toFixed(0)}% crit — streak ${raioNegroStack})`;
@@ -874,6 +1143,7 @@ function tentarFugir() {
     estadoAtual = "GAME_OVER";
     opcoesAcao = [{ texto: "Voltar ao Lobby", acao: () => { estadoAtual = "LOBBY"; render(); } }];
     adicionarGold(jogador.gold);
+    jogador.removerEquipamentos();
     atualizarLog(`Você fugiu com sucesso! Extraiu ${jogador.gold}G e todos os seus itens para o Lobby.`);
   } else {
     atualizarLog("Você falhou em fugir!", () => {
@@ -895,6 +1165,13 @@ function processarMortes(): boolean {
       jogador.experience += alvo.xpReward;
       jogador.gold += alvo.goldReward;
 
+      // Drops de materiais
+      const drops = rolarDrops(alvo.name, jogador.luck);
+      if (drops.length > 0) {
+        drops.forEach(d => adicionarDrop(d));
+        logMensagem += `\n🎒 Drop: ${drops.join(", ")}!`;
+      }
+
       // Necromante Revive (20% de chance + INT * 1%)
       if (temNecromante) {
         const chanceRevive = 0.20 + jogador.intelligence * 0.01;
@@ -911,6 +1188,14 @@ function processarMortes(): boolean {
 }
 
 function turnoInimigo() {
+  processarMortes();
+  if (inimigosAtuais.length === 0) {
+    vencerBatalha();
+    return;
+  }
+
+  // Processa passivas de turno dos equipamentos
+  jogador.processarPassivasDeEquipamento(inimigosAtuais);
   processarMortes();
   if (inimigosAtuais.length === 0) {
     vencerBatalha();
@@ -947,14 +1232,14 @@ function faseBardo() {
 
   const temBardo = jogador.skills.some(s => s.nome === "Encanto do Bardo");
   const chanceEncanto = 0.05 + jogador.luck * 0.01;
-  
+
   if (temBardo && Math.random() < chanceEncanto) {
     const alvoIdx = Math.floor(Math.random() * inimigosAtuais.length);
     const atacante = inimigosAtuais[alvoIdx]!;
     const alvoReal = inimigosAtuais.length > 1 ? inimigosAtuais[(alvoIdx + 1) % inimigosAtuais.length]! : atacante;
     const dano = atacante.attackPower;
     alvoReal.life -= dano;
-    
+
     const encantoLog = `🎵 Encanto do Bardo! ${atacante.name} enlouquece e ataca ${alvoReal.name} por ${dano} de dano!`;
     atualizarLog(encantoLog, () => {
       setTimeout(() => faseAtaqueInimigos(), 800);
@@ -1009,9 +1294,14 @@ function faseAtaqueInimigos() {
           return;
         }
       }
-      // Sem esquiva: aplica dano normalmente
-      jogador.life -= totalDano;
-      atualizarLog(`Os inimigos atacam e causam ${totalDano} de dano!`, () => {
+      // Sem esquiva: aplica passiva Bastião se ativa (Armadura de Placas)
+      let danoFinalAoJogador = totalDano;
+      if (jogador._armorPassivaAtiva === "Bastião" && jogador.life > jogador.maxLife * 0.5) {
+        danoFinalAoJogador = Math.floor(danoFinalAoJogador * 0.90);
+      }
+      jogador.life -= danoFinalAoJogador;
+      const bastMsg = jogador._armorPassivaAtiva === "Bastião" ? " [Bastião: -10%]" : "";
+      atualizarLog(`Os inimigos atacam e causam ${danoFinalAoJogador} de dano!${bastMsg}`, () => {
         setTimeout(() => menuBatalhaPrincipal(), 500);
       });
     }
@@ -1161,6 +1451,36 @@ function alocouPonto() {
   irParaAlocacaoDeAtributo(); // Verifica se tem mais ou volta pra exploração
 }
 
+function initSettings() {
+  const settingsBtn = document.getElementById("settings-btn");
+  const settingsModal = document.getElementById("settings-modal");
+  const closeSettings = document.getElementById("close-settings");
+
+  const musicVolInput = document.getElementById("music-vol") as HTMLInputElement;
+  const sfxVolInput = document.getElementById("sfx-vol") as HTMLInputElement;
+
+  if (settingsBtn && settingsModal && closeSettings && musicVolInput && sfxVolInput) {
+    settingsBtn.onclick = () => {
+      musicVolInput.value = musicVolume.toString();
+      sfxVolInput.value = sfxVolume.toString();
+      settingsModal.style.display = "flex";
+    };
+
+    closeSettings.onclick = () => {
+      settingsModal.style.display = "none";
+    };
+
+    musicVolInput.oninput = (e) => {
+      setMusicVolume(parseFloat((e.target as HTMLInputElement).value));
+    };
+
+    sfxVolInput.oninput = (e) => {
+      setSfxVolume(parseFloat((e.target as HTMLInputElement).value));
+    };
+  }
+}
+
 // Inicia
+initSettings();
 initMusic();
 render();

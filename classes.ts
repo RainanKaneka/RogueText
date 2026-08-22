@@ -101,9 +101,9 @@ export function aplicarClasse(jogador: mainCharacter, classe: IClasse): void {
 
   const arma = listaArmas[classe.armaInicial];
   if (arma) {
-    jogador.equippedWeapon = arma;
+    // Apenas adiciona a arma no inventário para o caso de querer equipar depois, mas NÃO sobrescreve a arma do loadout
     if (!jogador.weaponInventory.find(w => w.name === arma.name)) {
-      jogador.weaponInventory.unshift(arma); // Adiciona a arma da classe no início
+      jogador.weaponInventory.push(arma);
     }
   }
 

@@ -1,6 +1,6 @@
 import { Attack } from "./actions";
 import type { Habilidade, IAttack } from "./actions";
-import type { ActiveBuff, IWeapons } from "./artefacts";
+import type { ActiveBuff, IWeapons, IArmadura, IAcessorio } from "./artefacts";
 import { listaArmas } from "./artefacts";
 import chalk from "chalk";
 
@@ -27,9 +27,15 @@ export class mainCharacter extends Attack {
   public activeBuffs: ActiveBuff[] = [];
   public weaponInventory: IWeapons[] = [];
   public equippedWeapon: IWeapons;
+  public equippedArmor: IArmadura | null = null;
+  public equippedAccessory: IAcessorio | null = null;
   public classe: string = "";
   public pontosDeAtributo: number = 0;
   public gold: number = 0;
+  /** Flag interna usada pela passiva 'Bastião' da Armadura de Placas */
+  public _armorPassivaAtiva?: string;
+  /** Flag interna usada pela passiva 'Sangria' do Anel da Sangria */
+  public _accessoryPassivaAtiva?: string;
 
   // Taxa crítica deriva automaticamente da Destreza (2% por ponto de DEX)
   get taxaCritica(): number {
@@ -83,6 +89,79 @@ export class mainCharacter extends Attack {
   // Retorna o dano físico considerando a arma equipada e seu escalonamento
   danoComArma(): number {
     return this.equippedWeapon.calcularDano(this);
+  }
+
+  /**
+   * Equipa uma armadura: aplica bônus de vida/defesa e aciona a passiva.
+   * Remove a armadura anterior antes de aplicar a nova.
+   */
+  equiparArmadura(armadura: IArmadura): void {
+    // Remove bônus da armadura anterior, se existir
+    if (this.equippedArmor) {
+      this.maxLife -= this.equippedArmor.bonusVida;
+      this.life = Math.min(this.life, this.maxLife);
+      this.defense -= this.equippedArmor.bonusDefesa;
+      this.equippedArmor.passiva?.remover(this);
+    }
+    this.equippedArmor = armadura;
+    this.maxLife += armadura.bonusVida;
+    this.life += armadura.bonusVida;
+    this.defense += armadura.bonusDefesa;
+    armadura.passiva?.aplicar(this);
+  }
+
+  /**
+   * Equipa um acessório: aplica bonusStats e aciona a passiva.
+   * Remove o acessório anterior antes de aplicar o novo.
+   */
+  equiparAcessorio(acessorio: IAcessorio): void {
+    // Remove bônus do acessório anterior, se existir
+    if (this.equippedAccessory) {
+      const prev = this.equippedAccessory.bonusStats;
+      if (prev) {
+        this.strength    -= prev.strength    ?? 0;
+        this.dexterity   -= prev.dexterity   ?? 0;
+        this.intelligence -= prev.intelligence ?? 0;
+        this.luck        -= prev.luck        ?? 0;
+        this.defense     -= prev.defense     ?? 0;
+      }
+      this.equippedAccessory.passiva?.remover(this);
+    }
+    this.equippedAccessory = acessorio;
+    const stats = acessorio.bonusStats;
+    if (stats) {
+      this.strength    += stats.strength    ?? 0;
+      this.dexterity   += stats.dexterity   ?? 0;
+      this.intelligence += stats.intelligence ?? 0;
+      this.luck        += stats.luck        ?? 0;
+      this.defense     += stats.defense     ?? 0;
+    }
+    acessorio.passiva?.aplicar(this);
+  }
+
+  /**
+   * Remove todos os bônus de equipamento ao fim da run.
+   * Chamado no game over, fuga e vitória.
+   */
+  removerEquipamentos(): void {
+    if (this.equippedArmor) {
+      this.maxLife -= this.equippedArmor.bonusVida;
+      this.defense -= this.equippedArmor.bonusDefesa;
+      this.equippedArmor.passiva?.remover(this);
+      this.equippedArmor = null;
+    }
+    if (this.equippedAccessory) {
+      const stats = this.equippedAccessory.bonusStats;
+      if (stats) {
+        this.strength    -= stats.strength    ?? 0;
+        this.dexterity   -= stats.dexterity   ?? 0;
+        this.intelligence -= stats.intelligence ?? 0;
+        this.luck        -= stats.luck        ?? 0;
+        this.defense     -= stats.defense     ?? 0;
+      }
+      this.equippedAccessory.passiva?.remover(this);
+      this.equippedAccessory = null;
+    }
   }
 
   levelUp(): boolean {
@@ -142,6 +221,15 @@ export class mainCharacter extends Attack {
         }
         this.activeBuffs.splice(i, 1);
       }
+    }
+  }
+
+  processarPassivasDeEquipamento(inimigos: import("./enemies").enemy[]): void {
+    if (this.equippedArmor?.passiva?.onTurn) {
+      this.equippedArmor.passiva.onTurn(this, inimigos);
+    }
+    if (this.equippedAccessory?.passiva?.onTurn) {
+      this.equippedAccessory.passiva.onTurn(this, inimigos);
     }
   }
 }

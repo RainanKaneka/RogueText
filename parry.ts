@@ -13,30 +13,40 @@ const BASE_WINDOW = 15;        // tamanho inicial da janela de sucesso (%)
 const WINDOW_DECREMENT = 1.2;  // quanto a janela encolhe por streak
 const MIN_WINDOW = 2;          // janela mínima (%)
 
+import { playSfx } from "./music.js";
+
 export function showParryBar(onSuccess: () => void, onFail: () => void): void {
-  // Calcula dificuldade atual com base no streak
-  const speed = BASE_SPEED + parryStreak * SPEED_INCREMENT;
-  const windowSize = Math.max(MIN_WINDOW, BASE_WINDOW - parryStreak * WINDOW_DECREMENT + parryWindowBonus);
-
-  // Posição da janela de sucesso (randomizada levemente, mas sempre com espaço nas bordas)
-  const minPos = 10;
-  const maxPos = 90 - windowSize;
-  const windowPos = minPos + Math.random() * (maxPos - minPos);
-
-  // Injeta o overlay no DOM
+  // Injeta o overlay no DOM para aviso prévio
   const overlay = document.createElement("div");
   overlay.id = "parry-overlay";
   overlay.innerHTML = `
-    <div id="parry-container">
-      <div id="parry-label">⚔️ PARRY! Pressione <kbd>Espaço</kbd></div>
-      <div id="parry-bar">
-        <div id="parry-window" style="left: ${windowPos}%; width: ${windowSize}%;"></div>
-        <div id="parry-cursor"></div>
-      </div>
-      <div id="parry-streak">Streak: ${parryStreak} 🔥</div>
+    <div id="parry-container" style="display: flex; justify-content: center; align-items: center; min-height: 150px; font-size: 8rem; color: #ffeb3b; font-weight: bold; text-shadow: 4px 4px 10px rgba(0,0,0,0.8);">
+      !
     </div>
   `;
   document.body.appendChild(overlay);
+  playSfx("parry");
+
+  setTimeout(() => {
+    // Calcula dificuldade atual com base no streak
+    const speed = BASE_SPEED + parryStreak * SPEED_INCREMENT;
+    const windowSize = Math.max(MIN_WINDOW, BASE_WINDOW - parryStreak * WINDOW_DECREMENT + parryWindowBonus);
+
+    // Posição da janela de sucesso (randomizada levemente, mas sempre com espaço nas bordas)
+    const minPos = 10;
+    const maxPos = 90 - windowSize;
+    const windowPos = minPos + Math.random() * (maxPos - minPos);
+
+    overlay.innerHTML = `
+      <div id="parry-container">
+        <div id="parry-label">⚔️ PARRY! Pressione <kbd>Espaço</kbd></div>
+        <div id="parry-bar">
+          <div id="parry-window" style="left: ${windowPos}%; width: ${windowSize}%;"></div>
+          <div id="parry-cursor"></div>
+        </div>
+        <div id="parry-streak">Streak: ${parryStreak} 🔥</div>
+      </div>
+    `;
 
   let position = 0; // posição atual do cursor (0-100%)
   let resolved = false;
@@ -102,6 +112,7 @@ export function showParryBar(onSuccess: () => void, onFail: () => void): void {
 
   document.addEventListener("keydown", onKeyDown);
   animFrameId = requestAnimationFrame(animate);
+  }, 1000); // Fim do setTimeout
 }
 
 export function resetParryStreak() {

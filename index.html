@@ -15,8 +15,27 @@
 </head>
 
 <body>
-  <div id="mute-btn" style="position: fixed; top: 15px; right: 20px; font-size: 24px; cursor: pointer; z-index: 9999;">
-    🔇
+  <div style="position: fixed; top: 15px; right: 20px; font-size: 24px; cursor: pointer; z-index: 9999; display: flex; gap: 15px;">
+    <div id="settings-btn" title="Configurações">⚙️</div>
+    <div id="mute-btn" title="Mutar/Desmutar">🔇</div>
+  </div>
+
+  <div id="settings-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center;">
+    <div style="background: #222; border: 2px solid #555; border-radius: 8px; padding: 20px; width: 300px; color: white;">
+      <h2 style="margin-top: 0; text-align: center;">Configurações</h2>
+      
+      <div style="margin-bottom: 15px;">
+        <label for="music-vol" style="display: block; margin-bottom: 5px;">Música</label>
+        <input type="range" id="music-vol" min="0" max="1" step="0.05" value="0.05" style="width: 100%;">
+      </div>
+      
+      <div style="margin-bottom: 25px;">
+        <label for="sfx-vol" style="display: block; margin-bottom: 5px;">Efeitos Sonoros</label>
+        <input type="range" id="sfx-vol" min="0" max="1" step="0.05" value="0.5" style="width: 100%;">
+      </div>
+
+      <button id="close-settings" style="width: 100%; padding: 10px; background: #444; color: white; border: none; cursor: pointer; border-radius: 4px;">Fechar</button>
+    </div>
   </div>
   <div id="app">
     <h1 id="game-title">RogueText</h1>

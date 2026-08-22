@@ -213,6 +213,240 @@ export const listaArmas: Record<string, IWeapons> = {
   },
 };
 
+// =================================================================
+// SISTEMA DE ARMADURAS
+// =================================================================
+
+export interface EquipmentPassive {
+  nome: string;
+  descricao: string;
+  /** Chamado ao equipar/início da run. Aplica o efeito no jogador. */
+  aplicar: (jogador: mainCharacter) => void;
+  /** Chamado ao remover/fim da run. Reverte o efeito no jogador. */
+  remover: (jogador: mainCharacter) => void;
+  /** Chamado a cada turno da batalha. */
+  onTurn?: (jogador: mainCharacter, inimigos: import("./enemies").enemy[]) => void;
+}
+
+export interface IArmadura {
+  name: string;
+  description: string;
+  raridade: Raridade;
+  price: number;         // Custo na loja (0 = não disponível na loja)
+  bonusVida: number;     // Bônus de vida máxima
+  bonusDefesa: number;   // Bônus de defesa
+  passiva?: EquipmentPassive;
+  receita?: Record<string, number>; // Materiais para forjar
+}
+
+export interface IAcessorio {
+  name: string;
+  description: string;
+  raridade: Raridade;
+  price: number;
+  bonusStats?: {
+    strength?: number;
+    dexterity?: number;
+    intelligence?: number;
+    luck?: number;
+    defense?: number;
+  };
+  passiva?: EquipmentPassive;
+  receita?: Record<string, number>; // Materiais para forjar
+}
+
+export const listaArmaduras: Record<string, IArmadura> = {
+  // ── Conjunto Inicial (disponível na loja) ─────────────────────────
+  "Robes Rasgados": {
+    name: "Robes Rasgados",
+    description: "Trajes desgastados. Oferecem proteção mínima.",
+    raridade: "COMUM",
+    price: 0,
+    bonusVida: 0,
+    bonusDefesa: 0,
+  },
+  "Vestes de Couro": {
+    name: "Vestes de Couro",
+    description: "Couro curtido que oferece proteção básica.",
+    raridade: "COMUM",
+    price: 300,
+    bonusVida: 30,
+    bonusDefesa: 2,
+  },
+  "Cota de Malha": {
+    name: "Cota de Malha",
+    description: "Armadura de elos metálicos. Equilibrada entre proteção e mobilidade.",
+    raridade: "RARA",
+    price: 800,
+    bonusVida: 60,
+    bonusDefesa: 5,
+  },
+  "Armadura de Placas": {
+    name: "Armadura de Placas",
+    description: "Proteção máxima, mas reduz levemente a agilidade.",
+    raridade: "EPICA",
+    price: 2500,
+    bonusVida: 120,
+    bonusDefesa: 12,
+    passiva: {
+      nome: "Bastião",
+      descricao: "Enquanto com mais de 50% de vida, recebe 10% menos dano.",
+      aplicar: (j) => { j._armorPassivaAtiva = "Bastião"; },
+      remover: (j) => { j._armorPassivaAtiva = undefined; },
+    },
+  },
+  "Manto do Feiticeiro": {
+    name: "Manto do Feiticeiro",
+    description: "Manto imbuído de magia. Aumenta a Inteligência.",
+    raridade: "RARA",
+    price: 900,
+    bonusVida: 20,
+    bonusDefesa: 2,
+    passiva: {
+      nome: "Mente Afiada",
+      descricao: "+3 de Inteligência durante a run.",
+      aplicar: (j) => { j.intelligence += 3; },
+      remover: (j) => { j.intelligence -= 3; },
+    },
+  },
+  "Gibão de Ladrão": {
+    name: "Gibão de Ladrão",
+    description: "Veste leve que favorece agilidade e furtividade.",
+    raridade: "RARA",
+    price: 750,
+    bonusVida: 25,
+    bonusDefesa: 3,
+    passiva: {
+      nome: "Furtivo",
+      descricao: "+3 de Destreza durante a run.",
+      aplicar: (j) => { j.dexterity += 3; },
+      remover: (j) => { j.dexterity -= 3; },
+    },
+  },
+  // ── Crafting ─────────────────────────
+  "Couraça do Errante": {
+    name: "Couraça do Errante",
+    description: "Uma armadura formidável que exala uma aura destrutiva constante.",
+    raridade: "LENDARIA",
+    price: 0,
+    bonusVida: 150,
+    bonusDefesa: 15,
+    receita: { "Fragmento de Osso Denso": 5, "Cauda Farpada": 3, "Placa de Ferro Assombrada": 2 },
+    passiva: {
+      nome: "Aura do Errante",
+      descricao: "Causa 5 (+10% FOR +10% SOR) de dano em todos os inimigos por turno.",
+      aplicar: (j) => { /* passiva atuando onTurn */ },
+      remover: (j) => { },
+      onTurn: (j, inimigos) => {
+        const dano = 5 + Math.floor(j.strength * 0.1) + Math.floor(j.luck * 0.1);
+        inimigos.forEach(ini => ini.life -= dano);
+        console.log(`[Aura do Errante] Causou ${dano} de dano a todos os inimigos!`);
+      }
+    }
+  }
+};
+
+export const listaAcessorios: Record<string, IAcessorio> = {
+  // ── Conjunto Inicial (disponível na loja) ─────────────────────────
+  "Sem Acessório": {
+    name: "Sem Acessório",
+    description: "Nenhum acessório equipado.",
+    raridade: "COMUM",
+    price: 0,
+  },
+  "Amuleto da Vitalidade": {
+    name: "Amuleto da Vitalidade",
+    description: "Aumenta a vida máxima em 50.",
+    raridade: "COMUM",
+    price: 350,
+    passiva: {
+      nome: "Vitalidade",
+      descricao: "+50 de Vida Máxima.",
+      aplicar: (j) => { j.maxLife += 50; j.life += 50; },
+      remover: (j) => { j.maxLife -= 50; if (j.life > j.maxLife) j.life = j.maxLife; },
+    },
+  },
+  "Anel da Força": {
+    name: "Anel da Força",
+    description: "Anel simples que amplifica a força física.",
+    raridade: "COMUM",
+    price: 400,
+    bonusStats: { strength: 2 },
+  },
+  "Anel da Sorte": {
+    name: "Anel da Sorte",
+    description: "Um anel com uma moeda de ouro incrustada. Aumenta a Sorte.",
+    raridade: "COMUM",
+    price: 400,
+    bonusStats: { luck: 2 },
+  },
+  "Pingente do Estudioso": {
+    name: "Pingente do Estudioso",
+    description: "Amplifica o poder mágico do portador.",
+    raridade: "RARA",
+    price: 700,
+    bonusStats: { intelligence: 3 },
+  },
+  "Bracelete do Arqueiro": {
+    name: "Bracelete do Arqueiro",
+    description: "Aumenta a precisão e a chance de crítico.",
+    raridade: "RARA",
+    price: 700,
+    bonusStats: { dexterity: 3 },
+  },
+  "Amuleto da Resistência": {
+    name: "Amuleto da Resistência",
+    description: "Aumenta a defesa passivamente.",
+    raridade: "RARA",
+    price: 600,
+    bonusStats: { defense: 4 },
+  },
+  "Anel Polivalente": {
+    name: "Anel Polivalente",
+    description: "+1 em todos os atributos.",
+    raridade: "EPICA",
+    price: 1500,
+    bonusStats: { strength: 1, dexterity: 1, intelligence: 1, luck: 1, defense: 1 },
+  },
+  // ── Crafting ─────────────────────────
+  "Anel da Sangria": {
+    name: "Anel da Sangria",
+    description: "Anel de cor rubi que suga a vitalidade do alvo. Concede 10% de roubo de vida físico.",
+    raridade: "EPICA",
+    price: 0,
+    receita: { "Sangue Regenerativo Menor": 5, "Dente Podre": 3, "Asa de Quiróptero": 2 },
+    passiva: {
+      nome: "Sangria",
+      descricao: "10% de Lifesteal em ataques físicos.",
+      aplicar: (j) => { j._accessoryPassivaAtiva = "Sangria"; },
+      remover: (j) => { j._accessoryPassivaAtiva = undefined; }
+    }
+  },
+  "Colar da Revigoração": {
+    name: "Colar da Revigoração",
+    description: "Pingente que pulsa com vida. Cura vida todo turno, escalando com DEF e INT.",
+    raridade: "LENDARIA",
+    price: 0,
+    receita: { "Pó Cadavérico": 5, "Núcleo Biológico Instável": 3, "Poeira de Embalsamamento": 1 },
+    passiva: {
+      nome: "Revigoração",
+      descricao: "Cura 15 de vida (+2% DEF + 1% INT) por turno.",
+      aplicar: () => {},
+      remover: () => {},
+      onTurn: (j) => {
+        const curaExtraDef = Math.floor(j.defense * 0.02 * 15); // Wait, "aumenta em 2% a cada 1 ponto" means 2% of the base 15 heal, or just +2 flat?
+        // "a cura aumenta em 2% a cada 1 ponto em defesa" = cura * (1 + DEF * 0.02)
+        const fatorDef = 1 + (j.defense * 0.02);
+        const fatorInt = (j.intelligence * 0.01); // "e 1% a cada 1 ponto em int" = fator total = 1 + DEF*0.02 + INT*0.01
+        const curaBase = 15;
+        const curaTotal = Math.floor(curaBase * (1 + (j.defense * 0.02) + (j.intelligence * 0.01)));
+        j.curar(curaTotal);
+        console.log(`[Revigoração] Curou ${curaTotal} de vida!`);
+      }
+    }
+  }
+};
+
 export const listaConsumiveis: Record<string, IConsumivel> = {
   "Poção de Cura": {
     name: "Poção de Cura",

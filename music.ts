@@ -1,6 +1,7 @@
-// Gerenciador de Música para RogueText
+// Gerenciador de Áudio para RogueText
 
 export type TrackName = "title" | "dungeon" | "boss";
+export type SfxName = "hover" | "parry" | "hit";
 
 const tracks: Record<TrackName, string> = {
   title: "/ost/xDeviruchi - Title Theme .wav",
@@ -8,19 +9,44 @@ const tracks: Record<TrackName, string> = {
   boss: "/ost/xDeviruchi - Decisive Battle.wav"
 };
 
+const sfxFiles: Record<SfxName, string> = {
+  hover: "/ost/sounds/Menu Selection Click.wav",
+  parry: "/ost/sounds/sd_0.wav",
+  hit: "/ost/sounds/hit01.wav"
+};
+
+export let musicVolume: number = 0.05;
+export let sfxVolume: number = 0.5;
+
 let currentAudio: HTMLAudioElement | null = null;
 let currentTrackName: TrackName | null = null;
-let isMuted: boolean = true;
+export let isMuted: boolean = true;
+
+let heartbeatAudio: HTMLAudioElement | null = null;
+
+// Tenta recuperar os volumes salvos
+try {
+  const savedMusic = localStorage.getItem("rt_music_vol");
+  if (savedMusic !== null) musicVolume = parseFloat(savedMusic);
+  
+  const savedSfx = localStorage.getItem("rt_sfx_vol");
+  if (savedSfx !== null) sfxVolume = parseFloat(savedSfx);
+} catch (e) {}
 
 export function initMusic() {
   const muteBtn = document.getElementById("mute-btn");
   if (muteBtn) {
     muteBtn.onclick = () => toggleMute();
+    muteBtn.textContent = isMuted ? "🔇" : "🔊";
   }
+
+  // Pre-load heartbeat
+  heartbeatAudio = new Audio("/ost/sounds/heartbeat_slow_0.wav");
+  heartbeatAudio.loop = true;
 }
 
 export function playMusic(track: TrackName) {
-  if (currentTrackName === track) return; // Already playing
+  if (currentTrackName === track) return; 
 
   if (currentAudio) {
     currentAudio.pause();
@@ -30,17 +56,50 @@ export function playMusic(track: TrackName) {
   currentTrackName = track;
   currentAudio = new Audio(tracks[track]);
   currentAudio.loop = true;
-  currentAudio.volume = 0.05;
+  currentAudio.volume = musicVolume;
 
   if (isMuted) {
     currentAudio.muted = true;
   } else {
-    // Attempt to autoplay
     currentAudio.play().catch((err) => {
       console.warn("Autoplay blocked by browser. Awaiting user interaction.", err);
-      // We could visually indicate that audio is blocked, but user interaction will fix it
     });
   }
+}
+
+export function playSfx(type: SfxName) {
+  if (isMuted) return;
+  const sfx = new Audio(sfxFiles[type]);
+  sfx.volume = sfxVolume;
+  sfx.play().catch(() => {});
+}
+
+export function updateHeartbeat(ratio: number) {
+  if (!heartbeatAudio) return;
+  
+  if (ratio <= 0.25 && ratio > 0) {
+    if (heartbeatAudio.paused && !isMuted) {
+      heartbeatAudio.volume = sfxVolume;
+      heartbeatAudio.play().catch(() => {});
+    }
+  } else {
+    if (!heartbeatAudio.paused) {
+      heartbeatAudio.pause();
+      heartbeatAudio.currentTime = 0;
+    }
+  }
+}
+
+export function setMusicVolume(v: number) {
+  musicVolume = v;
+  if (currentAudio) currentAudio.volume = v;
+  localStorage.setItem("rt_music_vol", v.toString());
+}
+
+export function setSfxVolume(v: number) {
+  sfxVolume = v;
+  if (heartbeatAudio) heartbeatAudio.volume = v;
+  localStorage.setItem("rt_sfx_vol", v.toString());
 }
 
 export function toggleMute() {
@@ -56,5 +115,9 @@ export function toggleMute() {
     if (!isMuted && currentAudio.paused) {
       currentAudio.play().catch(console.error);
     }
+  }
+  
+  if (heartbeatAudio) {
+    heartbeatAudio.muted = isMuted;
   }
 }
