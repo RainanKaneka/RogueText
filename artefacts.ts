@@ -452,6 +452,27 @@ export const listaAcessorios: Record<string, IAcessorio> = {
         console.log(`[Revigoração] Curou ${curaTotal} de vida!`);
       }
     }
+  },
+  "Aura de Vaas": {
+    name: "Aura de Vaas",
+    description: "Você cria uma pressão gravitacional em volta de você. Passivamente no início do turno, causa dano em área.",
+    raridade: "EPICA",
+    price: 0,
+    receita: { "Núcleo Sísmico": 2, "Véu Espectral": 1 },
+    passiva: {
+      nome: "Pressão Gravitacional",
+      descricao: "No início do turno, causa 20 + 4% da Vida Máxima em todos os inimigos.",
+      aplicar: () => {},
+      remover: () => {},
+      onTurn: (j, inimigos) => {
+        if (!inimigos || inimigos.length === 0) return;
+        const dano = Math.floor(20 + (j.maxLife * 0.04));
+        console.log(chalk.magenta(`🌀 A Aura de Vaas esmaga os inimigos, causando ${dano} de dano em todos!`));
+        for (const ini of inimigos) {
+          ini.life -= dano;
+        }
+      }
+    }
   }
 };
 
