@@ -772,11 +772,15 @@ function render() {
               ${Array.from({length: maxAcessorios}).map((_, slotIdx) => `
                 <div style="margin-bottom:15px; border:1px dashed #555; padding:5px;">
                   <h4 style="margin:0 0 5px 0; font-size:0.9rem; color:#888;">Slot ${slotIdx + 1}</h4>
-                  ${acessoriosDisponiveis.map(a => `
+                  ${acessoriosDisponiveis.map(a => {
+                    const isSelectedInOtherSlot = a.name !== "Sem Acessório" && selectedAcessorios.some((sel, sIdx) => sIdx !== slotIdx && sel === a.name);
+                    return `
                     <button id="lb-acc-${slotIdx}-${a.name.replace(/\s/g, '_')}" class="btn-action"
-                      style="width:100%; margin-bottom:3px; padding: 5px; ${selectedAcessorios[slotIdx] === a.name ? 'border-color:#a9e34b; background:rgba(169,227,75,0.15);' : ''}">
+                      ${isSelectedInOtherSlot ? "disabled" : ""}
+                      style="width:100%; margin-bottom:3px; padding: 5px; ${selectedAcessorios[slotIdx] === a.name ? 'border-color:#a9e34b; background:rgba(169,227,75,0.15);' : ''} ${isSelectedInOtherSlot ? 'opacity:0.3; cursor:not-allowed;' : ''}">
                       <span style="font-size:0.9rem; color:${rarColor[a.raridade] ?? '#aaa'};">${a.name}</span>
-                    </button>`).join('')}
+                    </button>`
+                  }).join('')}
                 </div>
               `).join('')}
             </div>
