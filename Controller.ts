@@ -158,7 +158,15 @@ function render() {
 
   if (estadoAtual === "LOJA") {
     const save = lerSave();
-    const armasAVenda = Object.values(listaArmas).filter(a => a.price > 0);
+    const classesDisp = getClassesDisponiveis(save).map(c => c.nome);
+
+    const armasAVenda = Object.values(listaArmas).filter(a => {
+      if (a.price <= 0) return false;
+      // Esconder armas específicas se a classe não estiver desbloqueada
+      if (a.name === "Trompete do Bardo" && !classesDisp.includes("Bardo")) return false;
+      if (a.name === "Tomo Antigo" && !classesDisp.includes("Necromante")) return false;
+      return true;
+    });
 
     let html = `
       <h2>Loja <span style="color:#aaa; font-size:1rem;">(Ouro Global: ${save.gold}G)</span></h2>
@@ -486,16 +494,16 @@ function render() {
 
     app.innerHTML = `
       <div class="hud-container" style="text-align:left; max-width:800px; margin:0 auto; color:#ddd;">
-        <h2 class="hud-title" style="text-align:center; font-size:2rem; margin-bottom:4px;">🎒 Mochila</h2>
+        <h2 class="hud-title" style="text-align:center; font-size:2rem; margin-bottom:4px;">Mochila</h2>
         <p style="text-align:center; color:#666; font-size:0.85rem; margin-bottom:20px;">Todos os seus itens e materiais.</p>
 
-        ${secao("Armas", "⚔️", "#ffd43b", armasHTML)}
-        ${secao("Armaduras", "🛡️", "#74c0fc", armadurasHTML)}
-        ${secao("Acessórios", "💍", "#a9e34b", acessoriosHTML)}
-        ${secao("Consumíveis", "🧪", "#ff8787", consumiveisHTML)}
+        ${secao("Armas", "", "#ffd43b", armasHTML)}
+        ${secao("Armaduras", "", "#74c0fc", armadurasHTML)}
+        ${secao("Acessórios", "", "#a9e34b", acessoriosHTML)}
+        ${secao("Consumíveis", "", "#ff8787", consumiveisHTML)}
 
         <div style="margin-bottom:24px;">
-          <h3 style="color:#e0c88a; margin:0 0 10px 0; font-size:1.1rem; border-bottom:1px solid #333; padding-bottom:6px;">⚒️ Materiais de Crafting</h3>
+          <h3 style="color:#e0c88a; margin:0 0 10px 0; font-size:1.1rem; border-bottom:1px solid #333; padding-bottom:6px;">Materiais de Crafting</h3>
           ${materiaisHTML}
         </div>
 
