@@ -38,6 +38,7 @@ let jogador: mainCharacter;
 let inimigosAtuais: enemy[] = [];
 let aliadosAtuais: enemy[] = [];
 let andarAtual: number = 1;
+let multiplicadorDificuldade: number = 1; // 1 = Normal, >1 = Expedições
 let salaAtual: number = 0;
 let logMensagem: string = "Bem-vindo ao RogueText!";
 let opcoesAcao: { texto: string, acao: () => void, descricao?: string }[] = [];
@@ -47,6 +48,7 @@ let raioNegroStack: number = 0; // Stack dinâmico de crit da passiva Raio Negro
 let furiaPenalidade: boolean = false;    // Próximo combate terá penalidade
 let furiaPenalidadeAtiva: boolean = false; // Penalidade ativa no combate atual
 let furiaSkipouPrimeiroTurno: boolean = false; // Já pulou o 1º turno deste combate
+let primeiroTurnoDoCombate: boolean = true;
 
 // Preços de revenda por raridade (em ouro)
 const PRECO_REVENDA: Record<string, number> = {
@@ -973,6 +975,7 @@ function iniciarNovaRun() {
   furiaPenalidade = false;
   furiaPenalidadeAtiva = false;
   furiaSkipouPrimeiroTurno = false;
+  primeiroTurnoDoCombate = true;
   andarAtual = 1;
   salaAtual = 0;
   estadoAtual = "SELECAO_LOADOUT";
@@ -1015,7 +1018,13 @@ function gerarInimigos() {
     if (lista) {
       const bossName = lista[Math.floor(Math.random() * lista.length)]!;
       const bossObj = battleEnemies[bossName as keyof typeof battleEnemies];
-      inimigosAtuais.push(new enemy(bossName, bossObj.attackPower, bossObj.life));
+      
+      const fatorEscalaATK = Math.pow(1.38, andarAtual - 1);
+      const fatorEscalaHP = Math.pow(1.45, andarAtual - 1);
+      const finalATK = Math.floor(bossObj.attackPower * 1.3 * fatorEscalaATK * multiplicadorDificuldade);
+      const finalHP = Math.floor(bossObj.life * 2.0 * fatorEscalaHP * multiplicadorDificuldade);
+
+      inimigosAtuais.push(new enemy(bossName, finalATK, finalHP));
     }
   } else {
     playMusic("dungeon");
@@ -1025,13 +1034,18 @@ function gerarInimigos() {
       for (let i = 0; i < qtd; i++) {
         const monstro = lista[Math.floor(Math.random() * lista.length)]!;
         const obj = battleEnemies[monstro as keyof typeof battleEnemies];
-        inimigosAtuais.push(new enemy(monstro, obj.attackPower, obj.life));
+        
+        const fatorEscalaATK = Math.pow(1.38, andarAtual - 1);
+        const fatorEscalaHP = Math.pow(1.45, andarAtual - 1);
+        const finalATK = Math.floor(obj.attackPower * fatorEscalaATK * multiplicadorDificuldade);
+        const finalHP = Math.floor(obj.life * fatorEscalaHP * multiplicadorDificuldade);
+
+        inimigosAtuais.push(new enemy(monstro, finalATK, finalHP));
       }
     }
   }
   estadoAtual = "BATALHA";
 
-  // Fúria Descontrolada: se havia penalidade, ativa agora
   if (furiaPenalidade) {
     furiaPenalidadeAtiva = true;
     furiaPenalidade = false;
@@ -1040,6 +1054,8 @@ function gerarInimigos() {
     furiaPenalidadeAtiva = false;
     furiaSkipouPrimeiroTurno = false;
   }
+
+  primeiroTurnoDoCombate = true;
 
   menuBatalhaPrincipal();
 }
@@ -1204,6 +1220,14 @@ function atacarInimigo(alvoIdx: number) {
     danoBase = Math.floor(danoBase * 1.5);
   }
 
+  // Mata Gigantes
+  const temMataGigantes = jogador.skills.some(s => s.nome === "Mata gigantes");
+  let bonusMataGigantes = 0;
+  if (temMataGigantes && alvo.life > jogador.life) {
+    bonusMataGigantes = Math.min(0.45, ((alvo.life - jogador.life) / 2500) * 0.45);
+    danoBase = Math.floor(danoBase * (1 + bonusMataGigantes));
+  }
+
   // Fúria Descontrolada penalidade: -15% dano
   if (furiaPenalidadeAtiva) danoBase = Math.floor(danoBase * 0.85);
 
@@ -1242,6 +1266,7 @@ function atacarInimigo(alvoIdx: number) {
   if (temRaioNegro && isCrit) msg += ` (Raio Negro: ${(critTotal * 100).toFixed(0)}% crit — streak ${raioNegroStack})`;
   if (furiaPenalidadeAtiva) msg += ` [ressaca -15% dano]`;
   if (temDominioDaMorte && mortosVivos.includes(alvo.name)) msg += ` [Domínio da Morte +50% dano]`;
+  if (temMataGigantes && bonusMataGigantes > 0) msg += ` [Mata Gigantes +${(bonusMataGigantes * 100).toFixed(1)}% dano]`;
 
   if (alvo.life <= 0) {
     msg += ` ${alvo.name} foi derrotado!`;
@@ -1276,8 +1301,77 @@ function menuHabilidades() {
 }
 
 function usarHabilidade(idx: number) {
-  // Simplificando o alvo da habilidade para o primeiro inimigo vivo por enquanto na web
   const habilidade = jogador.skills[idx]!;
+
+  if (habilidade.nome === "Rajada Mística") {
+    let maxRajadas = 1;
+    if (jogador.level >= 24) maxRajadas = 4;
+    else if (jogador.level >= 15) maxRajadas = 3;
+    else if (jogador.level >= 7) maxRajadas = 2;
+
+    const vivos = inimigosAtuais.filter(i => i.life > 0);
+    const alvosEscolhidos: enemy[] = [];
+
+    const dispararRajadas = () => {
+      // Escalonamento: O prompt diz "escala com inteligência e sorte"
+      const bonusInt = Math.floor(jogador.intelligence * 0.15);
+      const bonusLuck = Math.floor(jogador.luck * 0.15);
+      const danoPorRajada = 10 + bonusInt + bonusLuck;
+
+      const inimigosDiferentes = new Set(alvosEscolhidos);
+      const manaRestaurada = (5 + Math.floor(jogador.maxMana * 0.01)) * inimigosDiferentes.size;
+
+      jogador.mana += manaRestaurada;
+      if (jogador.mana > jogador.maxMana) jogador.mana = jogador.maxMana;
+
+      let log = `Você disparou ${alvosEscolhidos.length} Rajadas Místicas! (Dano: ${danoPorRajada}/rajada)\n`;
+      alvosEscolhidos.forEach(a => {
+        a.life -= danoPorRajada;
+        log += `⚡ Rajada atingiu ${a.name}!\n`;
+      });
+      log += `Você recuperou ${manaRestaurada} de Mana!`;
+      
+      opcoesAcao = [];
+      atualizarLog(log, () => {
+        setTimeout(() => turnoInimigo(), 1200);
+      });
+    };
+
+    if (vivos.length === 1) {
+      for (let i = 0; i < maxRajadas; i++) alvosEscolhidos.push(vivos[0]!);
+      dispararRajadas();
+      return;
+    } else {
+      const escolherProximoAlvo = (rajadaAtual: number) => {
+        if (rajadaAtual > maxRajadas) {
+          dispararRajadas();
+          return;
+        }
+
+        const vivosAtuais = inimigosAtuais.filter(i => i.life > 0);
+        if (vivosAtuais.length === 0) {
+          dispararRajadas();
+          return;
+        }
+
+        opcoesAcao = vivosAtuais.map((ini) => ({
+          texto: `Atacar ${ini.name}`,
+          acao: () => {
+            alvosEscolhidos.push(ini);
+            escolherProximoAlvo(rajadaAtual + 1);
+          }
+        }));
+        
+        atualizarLog(`Rajada Mística: Selecione o alvo para o tiro ${rajadaAtual}/${maxRajadas}:`);
+        render();
+      };
+      
+      escolherProximoAlvo(1);
+      return;
+    }
+  }
+
+  // Simplificando o alvo da habilidade para o primeiro inimigo vivo por enquanto na web
   // A interface de usar espera console.logs, precisaremos capturar ou ignorar por enquanto
   // e apenas mostrar que a habilidade foi usada.
   const sucesso = habilidade.usar(jogador, inimigosAtuais, 0);
@@ -1363,6 +1457,21 @@ function turnoInimigo() {
     return;
   }
 
+  // Sorte de Principiante
+  if (primeiroTurnoDoCombate) {
+    primeiroTurnoDoCombate = false;
+    const temSorteDePrincipiante = jogador.skills.some(s => s.nome === "Sorte de principiante");
+    if (temSorteDePrincipiante) {
+      const chance = Math.min(0.30, jogador.luck * 0.02);
+      if (Math.random() < chance) {
+        atualizarLog(`🍀 Sorte de Principiante! Você ganha um turno extra!`, () => {
+          setTimeout(() => menuBatalhaPrincipal(), 800);
+        });
+        return;
+      }
+    }
+  }
+
   // --- FASE ALIADOS ---
   if (aliadosAtuais.length > 0) {
     aliadosAtuais = aliadosAtuais.filter(a => a.life > 0);
@@ -1426,7 +1535,8 @@ function faseAtaqueInimigos() {
   setParryWindowBonus(temVelocidade ? 20 : 0); // +20% de janela quando ativo
 
   inimigosAtuais.forEach(ini => {
-    const reducao = Math.min(jogador.defense * 0.005, 0.8);
+    // Nova fórmula de redução (logarítmica): máx teórico nunca chega a 100%
+    const reducao = jogador.defense / (jogador.defense + 100);
     let dano = Math.floor(ini.attackPower * (1 - reducao));
     if (dano < 1) dano = 1;
     totalDano += dano;

@@ -357,6 +357,34 @@ export class DominioDaMorte implements Habilidade {
   usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean { return true; }
 }
 
+export class MataGigantes implements Habilidade {
+  nome = "Mata gigantes";
+  descricao = "Passiva Épica. Causa mais dano quanto mais vida o inimigo tiver acima de você (máx de 45% com 2500 de diferença).";
+  tipo = "PASSIVA" as const;
+  raridade = "EPICA" as const;
+  usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean { return true; }
+}
+
+export class SorteDePrincipiante implements Habilidade {
+  nome = "Sorte de principiante";
+  descricao = "Passiva Rara. Pequena chance de jogar novamente no primeiro turno do combate (Escala com Sorte, até 30%).";
+  tipo = "PASSIVA" as const;
+  raridade = "RARA" as const;
+  usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean { return true; }
+}
+
+export class RajadaMistica implements Habilidade {
+  nome = "Rajada Mística";
+  descricao = "Usa 0 Mana. Dispara rajadas (1 a 4). Causa 10 dano mágico/rajada. Restaura mana por inimigo diferente atingido.";
+  tipo = "ATIVA" as const;
+  raridade = "COMUM" as const;
+  custoMana = 0;
+  usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean {
+    // A lógica de ativação e seleção de alvo é processada no Controller.ts
+    return true; 
+  }
+}
+
 export const TODAS_HABILIDADES: Habilidade[] = [
   new GolpeForte(),
   new BolaDeFogo(),
@@ -372,6 +400,9 @@ export const TODAS_HABILIDADES: Habilidade[] = [
   new Evasivo(),
   new EncantoDoBardo(),
   new DominioDaMorte(),
+  new MataGigantes(),
+  new SorteDePrincipiante(),
+  new RajadaMistica(),
 ];
 
 // 5. O ALGORITMO DE SORTEIO (GACHA)

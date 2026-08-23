@@ -156,7 +156,7 @@ export class mainCharacter extends Attack {
     if (this.experience >= this.experienceToNextLevel) {
       this.level += 1;
       this.experience -= this.experienceToNextLevel;
-      this.experienceToNextLevel = 100 * (this.level * this.level);
+      this.experienceToNextLevel = 80 * this.level * (this.level + 2);
 
       let defCalc = this.defense;
       // Subtrai a defesa temporária das poções para não escalar vida máxima base
@@ -164,7 +164,7 @@ export class mainCharacter extends Attack {
       defCalc -= (armorBuffsCount * 10);
 
       // Aumentos base de recursos por nível
-      this.maxLife += 20 + (this.level * 5) * (defCalc / 2);
+      this.maxLife += 25 + (this.level * 3) + Math.floor(defCalc * 2);
       this.life = this.maxLife;
       this.maxEnergy += 10 + (this.level * 2) * (this.strength / 5);
       this.maxMana += 10 + (this.level * 2) * (this.intelligence /5);

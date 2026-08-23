@@ -44,13 +44,17 @@ const SCALING_MULT: Record<ScalingGrade, number> = {
   E: 0.01,
 };
 
+const calcAttrBonus = (attr: number, mult: number) => {
+  return Math.floor((attr * 2 + Math.pow(attr, 2) * 0.6) * mult);
+};
+
 const calcDano = (arma: Pick<IWeapons, "damage" | "scaling">, jogador: mainCharacter): number => {
   const luckScaling = arma.scaling.luck ? SCALING_MULT[arma.scaling.luck] : 0;
   const bonus =
-    Math.floor((((jogador.strength ** 2) + (jogador.strength ** 2)) * jogador.strength / 3) * SCALING_MULT[arma.scaling.strength]) +
-    Math.floor(((jogador.dexterity ** 2) + (jogador.dexterity ** 2)) * jogador.dexterity / 3 * SCALING_MULT[arma.scaling.dexterity]) +
-    Math.floor(((jogador.intelligence ** 2) + (jogador.intelligence ** 2)) * jogador.intelligence / 3 * SCALING_MULT[arma.scaling.intelligence]) +
-    Math.floor(((jogador.luck ** 2) + (jogador.luck ** 2)) * jogador.luck / 3 * luckScaling);
+    calcAttrBonus(jogador.strength, SCALING_MULT[arma.scaling.strength]) +
+    calcAttrBonus(jogador.dexterity, SCALING_MULT[arma.scaling.dexterity]) +
+    calcAttrBonus(jogador.intelligence, SCALING_MULT[arma.scaling.intelligence]) +
+    calcAttrBonus(jogador.luck, luckScaling);
   return arma.damage + bonus;
 };
 
@@ -167,11 +171,11 @@ export const listaArmas: Record<string, IWeapons> = {
   },
   "Martelo de Guerra": {
     name: "Martelo de Guerra",
-    description: "Um martelo colossal. Escalonamento S em Força, destruidor nas mãos certas.",
+    description: "Um martelo colossal. Escalonamento A em Força, destruidor nas mãos certas.",
     habilidade: undefined,
     raridade: "EPICA",
     price: 8500,
-    damage: 50,
+    damage: 55,
     levelRequired: 10,
     scaling: { strength: "A", dexterity: "C", intelligence: "E" },
     calcularDano(jogador) { return calcDano(this, jogador); },
@@ -183,18 +187,18 @@ export const listaArmas: Record<string, IWeapons> = {
     habilidade: undefined,
     raridade: "LENDARIA",
     price: 12500,
-    damage: 80,
+    damage: 75,
     levelRequired: 7,
     scaling: { strength: "B", dexterity: "A", intelligence: "C" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
   "Cetro do Arcano": {
     name: "Cetro do Arcano",
-    description: "Um cetro imbuído com magia ancestral. Escalonamento S em Inteligência.",
+    description: "Um cetro imbuído com magia ancestral. Escalonamento A em Inteligência.",
     habilidade: undefined,
     raridade: "LENDARIA",
     price: 14000,
-    damage: 65,
+    damage: 70,
     levelRequired: 8,
     scaling: { strength: "E", dexterity: "B", intelligence: "A" },
     calcularDano(jogador) { return calcDano(this, jogador); },
@@ -206,7 +210,7 @@ export const listaArmas: Record<string, IWeapons> = {
     habilidade: undefined,
     raridade: "UNICA",
     price: 100000,
-    damage: 500,
+    damage: 130,
     levelRequired: 10,
     scaling: { strength: "B", dexterity: "A", intelligence: "S" },
     calcularDano(jogador) { return calcDano(this, jogador); },
