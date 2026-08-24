@@ -59,6 +59,7 @@ const calcDano = (arma: Pick<IWeapons, "damage" | "scaling">, jogador: mainChara
 };
 
 export const listaArmas: Record<string, IWeapons> = {
+  // === COMUNS ===
   "Espada Quebrada": {
     name: "Espada Quebrada",
     description: "Uma espada velha e lascada. Sua arma de partida.",
@@ -103,6 +104,63 @@ export const listaArmas: Record<string, IWeapons> = {
     scaling: { strength: "E", dexterity: "D", intelligence: "C" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
+  "Arco Curto": {
+    name: "Arco Curto",
+    description: "Um arco ágil. Exige Destreza para aproveitar ao máximo.",
+    habilidade: undefined,
+    raridade: "COMUM",
+    price: 1000,
+    damage: 24,
+    levelRequired: 5,
+    scaling: { strength: "E", dexterity: "B", intelligence: "E" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Punhal Enferrujado": {
+    name: "Punhal Enferrujado",
+    description: "A arma mais barata. Escala com Destreza e um pouco de Sorte.",
+    habilidade: undefined,
+    raridade: "COMUM",
+    price: 150,
+    damage: 15,
+    levelRequired: 1,
+    scaling: { strength: "E", dexterity: "C", intelligence: "E", luck: "D" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Maça de Ferro": {
+    name: "Maça de Ferro",
+    description: "Alternativa à Espada Longa para focar apenas em Força.",
+    habilidade: undefined,
+    raridade: "COMUM",
+    price: 300,
+    damage: 22,
+    levelRequired: 1,
+    scaling: { strength: "C", dexterity: "E", intelligence: "E" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Harpa Arcana": {
+    name: "Harpa Arcana",
+    description: "Instrumento musical focado em Inteligência e Sorte.",
+    habilidade: undefined,
+    raridade: "COMUM",
+    price: 400,
+    damage: 16,
+    levelRequired: 1,
+    scaling: { strength: "E", dexterity: "D", intelligence: "D", luck: "C" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Bastão de Viajante": {
+    name: "Bastão de Viajante",
+    description: "Arma equilibrada para iniciantes sem rumo.",
+    habilidade: undefined,
+    raridade: "COMUM",
+    price: 350,
+    damage: 18,
+    levelRequired: 1,
+    scaling: { strength: "D", dexterity: "D", intelligence: "D" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+
+  // === RARAS ===
   "Trompete do Bardo": {
     name: "Trompete do Bardo",
     description: "Um trompete arcano. Escala com sorte.",
@@ -147,17 +205,6 @@ export const listaArmas: Record<string, IWeapons> = {
     scaling: { strength: "B", dexterity: "E", intelligence: "E" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
-  "Arco Curto": {
-    name: "Arco Curto",
-    description: "Um arco ágil. Exige Destreza para aproveitar ao máximo.",
-    habilidade: undefined,
-    raridade: "COMUM",
-    price: 1000,
-    damage: 24,
-    levelRequired: 5,
-    scaling: { strength: "E", dexterity: "B", intelligence: "E" },
-    calcularDano(jogador) { return calcDano(this, jogador); },
-  },
   "Clarinete Sombrio": {
     name: "Clarinete Sombrio",
     description: "Um clarinete sombrio. Escala com Sorte e Inteligência.",
@@ -169,6 +216,85 @@ export const listaArmas: Record<string, IWeapons> = {
     scaling: { strength: "E", dexterity: "D", intelligence: "B", luck: "C" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
+  "Katana": {
+    name: "Katana",
+    description: "Arma de alta velocidade, perfeita para cortes rápidos.",
+    habilidade: undefined,
+    raridade: "RARA",
+    price: 1800,
+    damage: 32,
+    levelRequired: 4,
+    scaling: { strength: "D", dexterity: "B", intelligence: "E" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Foice Negra": {
+    name: "Foice Negra",
+    description: "Arma para magos obscuros que lutam de perto.",
+    habilidade: undefined,
+    raridade: "RARA",
+    price: 2000,
+    damage: 35,
+    levelRequired: 5,
+    scaling: { strength: "C", dexterity: "D", intelligence: "C" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Besta de Repetição": {
+    name: "Besta de Repetição",
+    description: "Dispara rapidamente. Escala com Destreza e Sorte.",
+    habilidade: undefined,
+    raridade: "RARA",
+    price: 1500,
+    damage: 28,
+    levelRequired: 4,
+    scaling: { strength: "E", dexterity: "B", intelligence: "E", luck: "D" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Cajado de Cristal": {
+    name: "Cajado de Cristal",
+    description: "Excelente foco mágico antes dos grandes artefatos.",
+    habilidade: undefined,
+    raridade: "RARA",
+    price: 2200,
+    damage: 30,
+    levelRequired: 6,
+    scaling: { strength: "E", dexterity: "D", intelligence: "A" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Espada Bastarda": {
+    name: "Espada Bastarda",
+    description: "Versátil espada de duas mãos. Boa força e agilidade razoável.",
+    habilidade: undefined,
+    raridade: "RARA",
+    price: 2500,
+    damage: 40,
+    levelRequired: 6,
+    scaling: { strength: "B", dexterity: "C", intelligence: "E" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Flauta Espectral": {
+    name: "Flauta Espectral",
+    description: "Um instrumento místico focado em encantar pela sorte.",
+    habilidade: undefined,
+    raridade: "RARA",
+    price: 1800,
+    damage: 22,
+    levelRequired: 5,
+    scaling: { strength: "E", dexterity: "D", intelligence: "C", luck: "B" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Lança do Sentinela": {
+    name: "Lança do Sentinela",
+    description: "Uma lança equilibrada para defesas e estocadas.",
+    habilidade: undefined,
+    raridade: "RARA",
+    price: 1200,
+    damage: 30,
+    levelRequired: 3,
+    scaling: { strength: "C", dexterity: "C", intelligence: "E" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+
+  // === ÉPICAS ===
   "Martelo de Guerra": {
     name: "Martelo de Guerra",
     description: "Um martelo colossal. Escalonamento A em Força, destruidor nas mãos certas.",
@@ -180,6 +306,62 @@ export const listaArmas: Record<string, IWeapons> = {
     scaling: { strength: "A", dexterity: "C", intelligence: "E" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
+  "Kris Venenoso": {
+    name: "Kris Venenoso",
+    description: "Adaga élfica de precisão letal e mortífera.",
+    habilidade: undefined,
+    raridade: "EPICA",
+    price: 6000,
+    damage: 48,
+    levelRequired: 8,
+    scaling: { strength: "E", dexterity: "A", intelligence: "D", luck: "C" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Grimório Profano": {
+    name: "Grimório Profano",
+    description: "Tomo de magia negra que aumenta exponencialmente o poder arcano.",
+    habilidade: undefined,
+    raridade: "EPICA",
+    price: 7500,
+    damage: 50,
+    levelRequired: 8,
+    scaling: { strength: "E", dexterity: "D", intelligence: "A", luck: "D" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Machado do Carrasco": {
+    name: "Machado do Carrasco",
+    description: "O machado mais pesado do reino. Focado puramente em Força brutal.",
+    habilidade: undefined,
+    raridade: "EPICA",
+    price: 9000,
+    damage: 65,
+    levelRequired: 9,
+    scaling: { strength: "A", dexterity: "D", intelligence: "E" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Violino da Perdição": {
+    name: "Violino da Perdição",
+    description: "Tocar este violino traz miséria aos inimigos, e muita sorte a quem toca.",
+    habilidade: undefined,
+    raridade: "EPICA",
+    price: 8000,
+    damage: 45,
+    levelRequired: 8,
+    scaling: { strength: "E", dexterity: "C", intelligence: "C", luck: "A" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Espada do Crepúsculo": {
+    name: "Espada do Crepúsculo",
+    description: "Espada perfeitamente balanceada entre peso, velocidade e poder mágico.",
+    habilidade: undefined,
+    raridade: "EPICA",
+    price: 10000,
+    damage: 60,
+    levelRequired: 9,
+    scaling: { strength: "B", dexterity: "B", intelligence: "C" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+
   // === LENDÁRIAS ===
   "Lâmina da Sombra": {
     name: "Lâmina da Sombra",
@@ -203,6 +385,51 @@ export const listaArmas: Record<string, IWeapons> = {
     scaling: { strength: "E", dexterity: "B", intelligence: "A" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
+  "Osso do Lich": {
+    name: "Osso do Lich",
+    description: "Um osso amaldiçoado que irradia pura magia corrompida.",
+    habilidade: undefined,
+    raridade: "LENDARIA",
+    price: 18000,
+    damage: 80,
+    levelRequired: 10,
+    scaling: { strength: "D", dexterity: "C", intelligence: "S" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Arco Longo Élfico": {
+    name: "Arco Longo Élfico",
+    description: "Arco quase perfeito que responde perfeitamente à maestria de quem o usa.",
+    habilidade: undefined,
+    raridade: "LENDARIA",
+    price: 16000,
+    damage: 75,
+    levelRequired: 9,
+    scaling: { strength: "D", dexterity: "S", intelligence: "E" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Harpa dos Reinos": {
+    name: "Harpa dos Reinos",
+    description: "O instrumento definitivo, cujos acordes mudam as probabilidades do universo.",
+    habilidade: undefined,
+    raridade: "LENDARIA",
+    price: 20000,
+    damage: 70,
+    levelRequired: 10,
+    scaling: { strength: "D", dexterity: "C", intelligence: "B", luck: "S" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Mandoble do Titã": {
+    name: "Mandoble do Titã",
+    description: "Uma espada colossal pesando toneladas. Só os mais fortes conseguem levantá-la.",
+    habilidade: undefined,
+    raridade: "LENDARIA",
+    price: 22000,
+    damage: 100,
+    levelRequired: 10,
+    scaling: { strength: "S", dexterity: "E", intelligence: "E" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+
   // === ÚNICAS ===
   "Excalibur": {
     name: "Excalibur",
@@ -213,6 +440,28 @@ export const listaArmas: Record<string, IWeapons> = {
     damage: 130,
     levelRequired: 10,
     scaling: { strength: "B", dexterity: "A", intelligence: "S" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Agulha do Destino": {
+    name: "Agulha do Destino",
+    description: "Uma lâmina tão fina que é quase impossível de ser vista no ar.",
+    habilidade: undefined,
+    raridade: "UNICA",
+    price: 75000,
+    damage: 110,
+    levelRequired: 10,
+    scaling: { strength: "D", dexterity: "S", intelligence: "D", luck: "A" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Báculo do Vazio": {
+    name: "Báculo do Vazio",
+    description: "Um cajado que absorve a própria luz ao seu redor.",
+    habilidade: undefined,
+    raridade: "UNICA",
+    price: 80000,
+    damage: 120,
+    levelRequired: 10,
+    scaling: { strength: "E", dexterity: "D", intelligence: "S", luck: "B" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
 };
@@ -347,8 +596,14 @@ export const listaArmaduras: Record<string, IArmadura> = {
       remover: (j) => { },
       onTurn: (j, inimigos) => {
         const dano = 5 + Math.floor(j.strength * 0.1) + Math.floor(j.luck * 0.1);
-        inimigos.forEach(ini => ini.life -= dano);
-        console.log(`[Aura do Errante] Causou ${dano} de dano a todos os inimigos!`);
+        let ls = 0;
+        inimigos.forEach(ini => {
+          ini.life -= dano;
+          ls += j.aplicarRouboDeVida(dano);
+        });
+        let msg = `[Aura do Errante] Causou ${dano} de dano a todos os inimigos!`;
+        if (ls > 0) msg += ` (Roubou ${ls} vida)`;
+        console.log(msg);
       }
     }
   }
@@ -471,10 +726,14 @@ export const listaAcessorios: Record<string, IAcessorio> = {
       onTurn: (j, inimigos) => {
         if (!inimigos || inimigos.length === 0) return;
         const dano = Math.floor(20 + (j.maxLife * 0.04));
-        console.log(chalk.magenta(`🌀 A Aura de Vaas esmaga os inimigos, causando ${dano} de dano em todos!`));
+        let ls = 0;
         for (const ini of inimigos) {
           ini.life -= dano;
+          ls += j.aplicarRouboDeVida(dano);
         }
+        let msg = `🌀 A Aura de Vaas esmaga os inimigos, causando ${dano} de dano em todos!`;
+        if (ls > 0) msg += ` (Roubou ${ls} vida)`;
+        console.log(chalk.magenta(msg));
       }
     }
   }

@@ -174,6 +174,11 @@ export class mainCharacter extends Attack {
       // +1 ponto de atributo para o jogador alocar
       this.pontosDeAtributo += 1;
 
+      // Passiva Keth: +1 Destreza a cada 3 níveis
+      if (this.classe === "Keth" && this.level % 3 === 0) {
+        this.dexterity += 1;
+      }
+
       console.log(chalk.bgMagenta.white.bold(`\n LEVEL UP! `));
       console.log(
         chalk.magentaBright(

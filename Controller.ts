@@ -3,10 +3,10 @@ import { enemy, battleEnemies } from "./enemies";
 import { listaConsumiveis, listaArmas, listaArmaduras, listaAcessorios, abrirBau, bauDoAndar } from "./artefacts";
 import { sortearTresHabilidades } from "./actions";
 import { getClassesDisponiveis, getClassesBloqueadas, aplicarClasse } from "./classes";
-import { lerSave, salvarSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras, desbloquearFlag, adicionarDrop, lerDrops, salvarLoadout, lerLoadout, removerItemExtra, consumirDrops, adicionarArmaduraExtra, adicionarAcessorioExtra } from "./saveData";
+import { lerSave, salvarSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras, desbloquearFlag, adicionarDrop, lerDrops, salvarLoadout, lerLoadout, removerItemExtra, consumirDrops, adicionarArmaduraExtra, adicionarAcessorioExtra, temFlag, registrarChegadaAndar } from "./saveData";
 import { rolarDrops } from "./drops.js";
 import { initMusic, playMusic, playSfx, updateHeartbeat, setMusicVolume, setSfxVolume, musicVolume, sfxVolume } from "./music.js";
-import { showParryBar, setParryWindowBonus } from "./parry.js";
+import { showParryBar, setParryWindowBonus, parryStreak } from "./parry.js";
 
 // Dados Globais
 const monstrosPorAndar: { [key: number]: string[] } = {
@@ -31,7 +31,7 @@ const bossesPorAndar: { [key: number]: string[] } = {
 };
 
 // Estado da Aplicação
-type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS";
+type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS" | "FAST_TRAVEL";
 
 let estadoAtual: GameState = "LOBBY";
 let jogador: mainCharacter;
@@ -61,6 +61,59 @@ const PRECO_REVENDA: Record<string, number> = {
 
 // Funções de UI
 const app = document.getElementById("game-container")!;
+
+let battleEventTimeout: any = null;
+let skillsPendenteDeEscolha: number = 0;
+
+function iniciarExploracaoBase() {
+  registrarChegadaAndar(1);
+  estadoAtual = "EXPLORACAO";
+  opcoesAcao = [{ texto: "Iniciar Jornada", acao: () => avancarSala() }];
+  atualizarLog(`Você escolheu a classe ${jogador.classe}! Boa sorte!`);
+  render();
+}
+
+function simularRunAte(andarDestino: number): { xp: number, gold: number } {
+  let xpTotal = 0;
+  let goldTotal = 0;
+
+  for (let a = 1; a < andarDestino; a++) {
+    const factorATK = Math.pow(1.38, a - 1);
+    const factorHP = Math.pow(1.45, a - 1);
+
+    const normais = monstrosPorAndar[a] || [];
+    if (normais.length > 0) {
+      let sumXP = 0;
+      normais.forEach(nome => {
+        const base = battleEnemies[nome as keyof typeof battleEnemies];
+        const scaledATK = Math.floor(base.attackPower * factorATK * multiplicadorDificuldade);
+        const scaledHP = Math.floor(base.life * factorHP * multiplicadorDificuldade);
+        sumXP += Math.floor((scaledATK * 2.5) + (scaledHP * 1.5));
+      });
+      const avgXP = sumXP / normais.length;
+      xpTotal += avgXP * 18; // 9 salas x 2 monstros médios
+    }
+
+    const bosses = bossesPorAndar[a] || [];
+    if (bosses.length > 0) {
+      let sumBossXP = 0;
+      bosses.forEach(nome => {
+        const base = battleEnemies[nome as keyof typeof battleEnemies];
+        const scaledATK = Math.floor(base.attackPower * 1.3 * factorATK * multiplicadorDificuldade);
+        const scaledHP = Math.floor(base.life * 2.0 * factorHP * multiplicadorDificuldade);
+        sumBossXP += Math.floor((scaledATK * 2.5) + (scaledHP * 1.5));
+      });
+      const avgBossXP = sumBossXP / bosses.length;
+      xpTotal += avgBossXP;
+    }
+
+    for (let sala = 1; sala <= 10; sala++) {
+      xpTotal += Math.floor(((a * a * 20) + (sala * a * 5)) * multiplicadorDificuldade);
+      goldTotal += Math.floor(((a * 5) + sala) * multiplicadorDificuldade);
+    }
+  }
+  return { xp: xpTotal, gold: goldTotal };
+}
 
 let typeWriterTimeout: any = null;
 let isTyping = false;
@@ -103,7 +156,7 @@ function render() {
   if (estadoAtual === "LOBBY") {
     app.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:10px;">
-        <button class="btn-lobby" id="btn-nova-run">Nova Run</button>
+        <button class="btn-lobby" id="btn-nova-run">Expedições</button>
         <button class="btn-lobby" id="btn-loja">Loja</button>
         <button class="btn-lobby" id="btn-ferreiro">Ferreiro</button>
         <button class="btn-lobby" id="btn-mochila">Mochila</button>
@@ -111,7 +164,7 @@ function render() {
         <button class="btn-lobby" id="btn-classes">Classes</button>
         <button class="btn-lobby" id="btn-sobre">Sobre o Jogo</button>
       </div>`;
-    document.getElementById("btn-nova-run")!.onclick = () => iniciarNovaRun();
+    document.getElementById("btn-nova-run")!.onclick = () => { estadoAtual = "EXPEDICOES"; render(); };
     document.getElementById("btn-classes")!.onclick = () => { estadoAtual = "CLASSES"; render(); };
     document.getElementById("btn-loja")!.onclick = () => { estadoAtual = "LOJA"; render(); };
     document.getElementById("btn-ferreiro")!.onclick = () => { estadoAtual = "FERREIRO"; render(); };
@@ -124,6 +177,39 @@ function render() {
     });
 
     playMusic("title");
+    return;
+  }
+
+  if (estadoAtual === "EXPEDICOES") {
+    const save = lerSave();
+    const hardDesbloqueado = save.expedicoesConcluidas?.includes("EXP_1_NORMAL");
+    
+    let html = `<h2>Expedições</h2>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom: 20px;">
+        <button class="btn-lobby" id="btn-exp1-normal">Expedição 1 (Normal)</button>
+        <button class="btn-lobby" id="btn-exp1-dificil" ${!hardDesbloqueado ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+          Expedição 1 (Difícil) ${!hardDesbloqueado ? '🔒' : ''}
+        </button>
+      </div>
+      <button class="btn-lobby" style="background:#555;" id="btn-expedicoes-voltar">Voltar</button>
+    `;
+    app.innerHTML = html;
+
+    document.getElementById("btn-exp1-normal")!.onclick = () => {
+      multiplicadorDificuldade = 1.0;
+      iniciarNovaRun();
+    };
+
+    if (hardDesbloqueado) {
+      document.getElementById("btn-exp1-dificil")!.onclick = () => {
+        multiplicadorDificuldade = 1.5;
+        iniciarNovaRun();
+      };
+    }
+    document.getElementById("btn-expedicoes-voltar")!.onclick = () => {
+      estadoAtual = "LOBBY";
+      render();
+    };
     return;
   }
 
@@ -627,7 +713,7 @@ function render() {
     const save = lerSave();
     const maxFloor = save.andarMaxAlcancado;
     let html = `<h2>Marcos Alcançados</h2><div style="text-align:left; color:#ccc; max-width:600px; margin: 0 auto;">`;
-    
+
     html += `<div style="margin-bottom:15px; padding:10px; border:1px solid ${maxFloor >= 5 ? '#ffd700' : '#444'}; border-radius: 8px;">
       <h3 style="color:${maxFloor >= 5 ? '#ffd700' : '#777'}">Marco 1 (Andar 5) - ${maxFloor >= 5 ? 'Desbloqueado!' : 'Bloqueado'}</h3>
       <p>Libera 1 espaço adicional de acessório no loadout (2 espaços).</p>
@@ -641,6 +727,11 @@ function render() {
     html += `<div style="margin-bottom:15px; padding:10px; border:1px solid ${maxFloor >= 10 ? '#ffd700' : '#444'}; border-radius: 8px;">
       <h3 style="color:${maxFloor >= 10 ? '#ffd700' : '#777'}">Marco 3 (Andar 10) - ${maxFloor >= 10 ? 'Desbloqueado!' : 'Bloqueado'}</h3>
       <p>Libera o 3º espaço de acessório no loadout (3 espaços).</p>
+    </div>`;
+
+    html += `<div style="margin-bottom:15px; padding:10px; border:1px solid ${temFlag('marco_10_parrys') ? '#ffd700' : '#444'}; border-radius: 8px;">
+      <h3 style="color:${temFlag('marco_10_parrys') ? '#ffd700' : '#777'}">Marco 4 (Mestre do Parry) - ${temFlag('marco_10_parrys') ? 'Desbloqueado!' : 'Bloqueado'}</h3>
+      <p>Condição: Atinja uma streak de 10 parrys seguidos.<br>Recompensa: +3 de Destreza permanente em qualquer classe.</p>
     </div>`;
 
     html += `</div>
@@ -680,10 +771,19 @@ function render() {
     disponiveis.forEach((classe, idx) => {
       document.getElementById(`btn-classe-${idx}`)!.onclick = () => {
         aplicarClasse(jogador, classe);
-        estadoAtual = "EXPLORACAO";
-        opcoesAcao = [{ texto: "Iniciar Jornada", acao: () => avancarSala() }];
-        atualizarLog(`Você escolheu a classe ${jogador.classe}! Boa sorte!`);
-        render();
+        
+        const saveFastTravel = lerSave();
+        const andaresDisponiveis = Object.keys(saveFastTravel.historicoAndares || {})
+          .map(Number)
+          .filter(a => (saveFastTravel.historicoAndares?.[a] ?? 0) >= 10 && a > 1)
+          .sort((a,b) => b-a);
+          
+        if (andaresDisponiveis.length > 0) {
+          estadoAtual = "FAST_TRAVEL";
+          render();
+        } else {
+          iniciarExploracaoBase();
+        }
       };
     });
 
@@ -694,6 +794,74 @@ function render() {
         document.getElementById(`btn-classe-${num}`)?.click();
       }
     };
+    return;
+  }
+
+  if (estadoAtual === "FAST_TRAVEL") {
+    const saveFastTravel = lerSave();
+    const andaresDisponiveis = Object.keys(saveFastTravel.historicoAndares || {})
+      .map(Number)
+      .filter(a => (saveFastTravel.historicoAndares?.[a] ?? 0) >= 10 && a > 1)
+      .sort((a,b) => b-a);
+
+    let html = `
+      <div style="max-width:600px; margin:0 auto; text-align:center;">
+        <h2 style="color:#ffd700;">Viagem Rápida (Fast Travel)</h2>
+        <p style="color:#bbb; margin-bottom: 20px;">Você dominou os primeiros andares da masmorra. Deseja pular diretamente para um andar avançado? Todo o XP e Ouro até lá serão calculados e entregues a você!</p>
+        
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button class="btn-action" id="btn-fast-travel-1" style="border-color:#aaa;">
+            Começar do Andar 1 (Padrão)
+          </button>
+    `;
+
+    andaresDisponiveis.forEach(a => {
+       const sim = simularRunAte(a);
+       html += `
+          <button class="btn-action" id="btn-fast-travel-${a}" style="border-color:#4dabf7;">
+            Pular para o Andar ${a}<br>
+            <small style="color:#a9e34b;">Simulação: +${sim.xp} XP | +${sim.gold} Ouro</small>
+          </button>
+       `;
+    });
+
+    html += `</div></div>`;
+    app.innerHTML = html;
+
+    document.getElementById("btn-fast-travel-1")!.onclick = () => {
+       iniciarExploracaoBase();
+    };
+
+    andaresDisponiveis.forEach(a => {
+       document.getElementById(`btn-fast-travel-${a}`)!.onclick = () => {
+          const sim = simularRunAte(a);
+          jogador.experience += sim.xp;
+          jogador.gold += sim.gold;
+          andarAtual = a;
+          salaAtual = 0;
+          atualizarAndarMax(andarAtual);
+          registrarChegadaAndar(andarAtual);
+          
+          let nivelUp = 0;
+          while (jogador.experience >= jogador.experienceToNextLevel) {
+            jogador.levelUp();
+            nivelUp++;
+          }
+          
+          if (nivelUp > 0) {
+            skillsPendenteDeEscolha = nivelUp;
+            estadoAtual = "LEVEL_UP_SKILL";
+            atualizarLog(`Você pulou para o Andar ${a} e ganhou ${sim.xp} XP / ${sim.gold}G!`, () => {
+              setTimeout(() => escolherNovaSkillLevelUp(), 800);
+            });
+          } else {
+             estadoAtual = "EXPLORACAO";
+             opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+             atualizarLog(`Você pulou para o Andar ${a} e ganhou ${sim.xp} XP / ${sim.gold}G!`);
+             render();
+          }
+       };
+    });
     return;
   }
 
@@ -729,7 +897,7 @@ function render() {
     // Garante que o array tenha o tamanho certo
     while (selectedAcessorios.length < maxAcessorios) selectedAcessorios.push("Sem Acessório");
     if (selectedAcessorios.length > maxAcessorios) selectedAcessorios = selectedAcessorios.slice(0, maxAcessorios);
-    
+
     let selectedItemSeguro: string | undefined = loadoutAtual.itemSeguro;
 
     const rarColor: Record<string, string> = {
@@ -771,18 +939,18 @@ function render() {
             <!-- ACESSORIOS -->
             <div>
               <h3 style="color:#a9e34b; margin:0 0 8px 0;">💍 Acessórios (${maxAcessorios})</h3>
-              ${Array.from({length: maxAcessorios}).map((_, slotIdx) => `
+              ${Array.from({ length: maxAcessorios }).map((_, slotIdx) => `
                 <div style="margin-bottom:15px; border:1px dashed #555; padding:5px;">
                   <h4 style="margin:0 0 5px 0; font-size:0.9rem; color:#888;">Slot ${slotIdx + 1}</h4>
                   ${acessoriosDisponiveis.map(a => {
-                    const isSelectedInOtherSlot = a.name !== "Sem Acessório" && selectedAcessorios.some((sel, sIdx) => sIdx !== slotIdx && sel === a.name);
-                    return `
+        const isSelectedInOtherSlot = a.name !== "Sem Acessório" && selectedAcessorios.some((sel, sIdx) => sIdx !== slotIdx && sel === a.name);
+        return `
                     <button id="lb-acc-${slotIdx}-${a.name.replace(/\s/g, '_')}" class="btn-action"
                       ${isSelectedInOtherSlot ? "disabled" : ""}
                       style="width:100%; margin-bottom:3px; padding: 5px; ${selectedAcessorios[slotIdx] === a.name ? 'border-color:#a9e34b; background:rgba(169,227,75,0.15);' : ''} ${isSelectedInOtherSlot ? 'opacity:0.3; cursor:not-allowed;' : ''}">
                       <span style="font-size:0.9rem; color:${rarColor[a.raridade] ?? '#aaa'};">${a.name}</span>
                     </button>`
-                  }).join('')}
+      }).join('')}
                 </div>
               `).join('')}
             </div>
@@ -818,9 +986,9 @@ function render() {
       // Eventos dos acessórios
       for (let slotIdx = 0; slotIdx < maxAcessorios; slotIdx++) {
         acessoriosDisponiveis.forEach(a => {
-          document.getElementById(`lb-acc-${slotIdx}-${a.name.replace(/\s/g, '_')}`)!.onclick = () => { 
-            selectedAcessorios[slotIdx] = a.name; 
-            renderLoadout(); 
+          document.getElementById(`lb-acc-${slotIdx}-${a.name.replace(/\s/g, '_')}`)!.onclick = () => {
+            selectedAcessorios[slotIdx] = a.name;
+            renderLoadout();
           };
         });
       }
@@ -1002,6 +1170,7 @@ function avancarSala() {
     salaAtual = 0;
     andarAtual++;
     atualizarAndarMax(andarAtual);
+    registrarChegadaAndar(andarAtual);
     atualizarLog(`Você avançou para o andar ${andarAtual}!`);
   } else {
     salaAtual++;
@@ -1018,7 +1187,7 @@ function gerarInimigos() {
     if (lista) {
       const bossName = lista[Math.floor(Math.random() * lista.length)]!;
       const bossObj = battleEnemies[bossName as keyof typeof battleEnemies];
-      
+
       const fatorEscalaATK = Math.pow(1.38, andarAtual - 1);
       const fatorEscalaHP = Math.pow(1.45, andarAtual - 1);
       const finalATK = Math.floor(bossObj.attackPower * 1.3 * fatorEscalaATK * multiplicadorDificuldade);
@@ -1034,7 +1203,7 @@ function gerarInimigos() {
       for (let i = 0; i < qtd; i++) {
         const monstro = lista[Math.floor(Math.random() * lista.length)]!;
         const obj = battleEnemies[monstro as keyof typeof battleEnemies];
-        
+
         const fatorEscalaATK = Math.pow(1.38, andarAtual - 1);
         const fatorEscalaHP = Math.pow(1.45, andarAtual - 1);
         const finalATK = Math.floor(obj.attackPower * fatorEscalaATK * multiplicadorDificuldade);
@@ -1231,6 +1400,13 @@ function atacarInimigo(alvoIdx: number) {
   // Fúria Descontrolada penalidade: -15% dano
   if (furiaPenalidadeAtiva) danoBase = Math.floor(danoBase * 0.85);
 
+  // Keth: Prontidão (+50% de dano após esquiva)
+  const prontidaoIndex = jogador.activeBuffs.findIndex(b => b.name === "Prontidão");
+  if (prontidaoIndex !== -1) {
+    danoBase = Math.floor(danoBase * 1.5);
+    jogador.activeBuffs.splice(prontidaoIndex, 1); // Consome o buff
+  }
+
   // Raio Negro: bônus de crit acumulado (passiva épica)
   const temRaioNegro = jogador.skills.some(s => s.nome === "Raio Negro");
   const critBase = jogador.taxaCritica;
@@ -1253,11 +1429,8 @@ function atacarInimigo(alvoIdx: number) {
 
   alvo.life -= danoFinal;
   playSfx("hit");
-  let lifesteal = 0;
-  if (jogador._accessoryPassivaAtiva === "Sangria") {
-    lifesteal = Math.floor(danoFinal * 0.1);
-    if (lifesteal > 0) jogador.curar(lifesteal);
-  }
+  
+  const lifesteal = jogador.aplicarRouboDeVida(danoFinal);
 
   let msg = `Você atacou ${alvo.name} causando ${danoFinal} de dano!`;
   if (lifesteal > 0) msg += ` (Roubou ${lifesteal} vida)`;
@@ -1265,6 +1438,7 @@ function atacarInimigo(alvoIdx: number) {
   else if (isCrit) msg = `⚡ CRÍTICO! ` + msg;
   if (temRaioNegro && isCrit) msg += ` (Raio Negro: ${(critTotal * 100).toFixed(0)}% crit — streak ${raioNegroStack})`;
   if (furiaPenalidadeAtiva) msg += ` [ressaca -15% dano]`;
+  if (prontidaoIndex !== -1) msg += ` [Prontidão +50% dano]`;
   if (temDominioDaMorte && mortosVivos.includes(alvo.name)) msg += ` [Domínio da Morte +50% dano]`;
   if (temMataGigantes && bonusMataGigantes > 0) msg += ` [Mata Gigantes +${(bonusMataGigantes * 100).toFixed(1)}% dano]`;
 
@@ -1305,32 +1479,35 @@ function usarHabilidade(idx: number) {
 
   if (habilidade.nome === "Rajada Mística") {
     let maxRajadas = 1;
-    if (jogador.level >= 24) maxRajadas = 4;
-    else if (jogador.level >= 15) maxRajadas = 3;
-    else if (jogador.level >= 7) maxRajadas = 2;
+    if (jogador.level >= 12) maxRajadas = 4;
+    else if (jogador.level >= 8) maxRajadas = 3;
+    else if (jogador.level >= 4) maxRajadas = 2;
 
     const vivos = inimigosAtuais.filter(i => i.life > 0);
     const alvosEscolhidos: enemy[] = [];
 
     const dispararRajadas = () => {
       // Escalonamento: O prompt diz "escala com inteligência e sorte"
-      const bonusInt = Math.floor(jogador.intelligence * 0.15);
-      const bonusLuck = Math.floor(jogador.luck * 0.15);
-      const danoPorRajada = 10 + bonusInt + bonusLuck;
+      const bonusInt = Math.floor(jogador.intelligence * 0.25);
+      const bonusLuck = Math.floor(jogador.luck * 0.30);
+      const danoPorRajada = 20 + bonusInt + bonusLuck;
 
       const inimigosDiferentes = new Set(alvosEscolhidos);
-      const manaRestaurada = (5 + Math.floor(jogador.maxMana * 0.01)) * inimigosDiferentes.size;
+      const manaRestaurada = (5 + Math.floor(jogador.maxMana * 0.05)) * inimigosDiferentes.size;
 
       jogador.mana += manaRestaurada;
       if (jogador.mana > jogador.maxMana) jogador.mana = jogador.maxMana;
 
       let log = `Você disparou ${alvosEscolhidos.length} Rajadas Místicas! (Dano: ${danoPorRajada}/rajada)\n`;
+      let totalLS = 0;
       alvosEscolhidos.forEach(a => {
         a.life -= danoPorRajada;
+        totalLS += jogador.aplicarRouboDeVida(danoPorRajada);
         log += `⚡ Rajada atingiu ${a.name}!\n`;
       });
       log += `Você recuperou ${manaRestaurada} de Mana!`;
-      
+      if (totalLS > 0) log += ` (Roubou ${totalLS} vida)`;
+
       opcoesAcao = [];
       atualizarLog(log, () => {
         setTimeout(() => turnoInimigo(), 1200);
@@ -1361,11 +1538,11 @@ function usarHabilidade(idx: number) {
             escolherProximoAlvo(rajadaAtual + 1);
           }
         }));
-        
+
         atualizarLog(`Rajada Mística: Selecione o alvo para o tiro ${rajadaAtual}/${maxRajadas}:`);
         render();
       };
-      
+
       escolherProximoAlvo(1);
       return;
     }
@@ -1443,10 +1620,24 @@ function processarMortes(): boolean {
 }
 
 function turnoInimigo() {
-  processarMortes();
+  const teveMorte = processarMortes();
   if (inimigosAtuais.length === 0) {
     vencerBatalha();
     return;
+  }
+
+  // Velocidade Superior (Keth)
+  if (teveMorte) {
+    const temVelocidadeSuperior = jogador.skills.some(s => s.nome === "Velocidade Superior");
+    if (temVelocidadeSuperior) {
+      const chance = Math.min(0.35, 0.05 + jogador.dexterity * 0.01);
+      if (Math.random() < chance) {
+        atualizarLog(`🗡️ Velocidade Superior! Após o abate, você age tão rápido que ganha um turno extra!`, () => {
+          setTimeout(() => menuBatalhaPrincipal(), 800);
+        });
+        return;
+      }
+    }
   }
 
   // Processa passivas de turno dos equipamentos
@@ -1477,11 +1668,14 @@ function turnoInimigo() {
     aliadosAtuais = aliadosAtuais.filter(a => a.life > 0);
     if (aliadosAtuais.length > 0) {
       let logAliados = ``;
+      let totalLSAliados = 0;
       aliadosAtuais.forEach(aliado => {
         const alvo = inimigosAtuais[Math.floor(Math.random() * inimigosAtuais.length)]!;
         alvo.life -= aliado.attackPower;
+        totalLSAliados += jogador.aplicarRouboDeVida(aliado.attackPower);
         logAliados += `👻 Seu ${aliado.name} ataca ${alvo.name} por ${aliado.attackPower} dano!\n`;
       });
+      if (totalLSAliados > 0) logAliados += `(Você roubou ${totalLSAliados} vida)\n`;
 
       atualizarLog(logAliados.trim(), () => {
         setTimeout(() => faseBardo(), 800);
@@ -1509,8 +1703,10 @@ function faseBardo() {
     const alvoReal = inimigosAtuais.length > 1 ? inimigosAtuais[(alvoIdx + 1) % inimigosAtuais.length]! : atacante;
     const dano = atacante.attackPower;
     alvoReal.life -= dano;
+    const lifesteal = jogador.aplicarRouboDeVida(dano);
 
-    const encantoLog = `🎵 Encanto do Bardo! ${atacante.name} enlouquece e ataca ${alvoReal.name} por ${dano} de dano!`;
+    let encantoLog = `🎵 Encanto do Bardo! ${atacante.name} enlouquece e ataca ${alvoReal.name} por ${dano} de dano!`;
+    if (lifesteal > 0) encantoLog += ` (Você roubou ${lifesteal} vida)`;
     atualizarLog(encantoLog, () => {
       setTimeout(() => faseAtaqueInimigos(), 800);
     });
@@ -1548,7 +1744,14 @@ function faseAtaqueInimigos() {
   showParryBar(
     () => {
       // Parry bem sucedido: sem dano
-      atualizarLog(`⚔️ PARRY PERFEITO! Você bloqueou o ataque dos inimigos!`, () => {
+      let parryMsg = `⚔️ PARRY PERFEITO! Você bloqueou o ataque dos inimigos!`;
+      
+      if (parryStreak === 10 && !temFlag('marco_10_parrys')) {
+        desbloquearFlag('marco_10_parrys');
+        parryMsg += `<br><br><span style="color:#ffd700">🏆 MARCO DESBLOQUEADO: Mestre do Parry! (+3 Destreza Permanente)</span>`;
+      }
+      
+      atualizarLog(parryMsg, () => {
         setTimeout(() => menuBatalhaPrincipal(), 500);
       });
     },
@@ -1559,6 +1762,13 @@ function faseAtaqueInimigos() {
         // Chance de esquiva: base 5% + (DEX * 1.75%), teto de 40%
         const chanceEsquiva = Math.min(0.40, 0.05 + jogador.dexterity * 0.0175);
         if (Math.random() < chanceEsquiva) {
+          if (jogador.classe === "Keth") {
+            jogador.activeBuffs.push({
+              name: "Prontidão",
+              duration: 1, // Durará até o próximo ataque ou turno expirar
+              onExpire: () => {}
+            });
+          }
           atualizarLog(`💨 Evasivo! Você desviou do ataque por um fio! (${(chanceEsquiva * 100).toFixed(0)}% esquiva)`, () => {
             setTimeout(() => menuBatalhaPrincipal(), 500);
           });
@@ -1589,8 +1799,8 @@ function vencerBatalha() {
   }
 
   // XP de monstros individuais (enemies.ts) + bônus de sala quadrático
-  const xpBonusSala = (andarAtual * andarAtual * 20) + (salaAtual * andarAtual * 5);
-  const goldSala = (andarAtual * 5) + salaAtual;
+  const xpBonusSala = Math.floor(((andarAtual * andarAtual * 20) + (salaAtual * andarAtual * 5)) * multiplicadorDificuldade);
+  const goldSala = Math.floor(((andarAtual * 5) + salaAtual) * multiplicadorDificuldade);
   jogador.experience += xpBonusSala;
   jogador.gold += goldSala;
 
@@ -1621,14 +1831,30 @@ function vencerBatalha() {
       msgBau += `🧪 Consumível encontrado: ${recompensa.item.name}`;
     }
 
+    if (andarAtual === 10) {
+      if (multiplicadorDificuldade === 1.0) {
+        registrarExpedicaoConcluida("EXP_1_NORMAL");
+      } else if (multiplicadorDificuldade === 1.5 && jogador.dexterity >= 20) {
+        desbloquearFlag("EXP_1_HARD_DEX_20");
+      }
+      msgBau = `🎉 EXPEDIÇÃO CONCLUÍDA! Você derrotou o Boss Final e recebeu um ${bau.nome}!\n`;
+      if (recompensa.tipo === "arma") msgBau += `⚔️ Arma: ${recompensa.item.name}`;
+      else msgBau += `🧪 Consumível: ${recompensa.item.name}`;
+    }
+
     if (nivelUp > 0) {
+      skillsPendenteDeEscolha = nivelUp;
       estadoAtual = "LEVEL_UP_SKILL";
       atualizarLog(msgBau, () => {
         setTimeout(() => escolherNovaSkillLevelUp(), 800);
       });
     } else {
       estadoAtual = "EXPLORACAO";
-      opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+      if (andarAtual === 10) {
+        opcoesAcao = [{ texto: "Voltar para o Lobby", acao: () => { estadoAtual = "LOBBY"; render(); } }];
+      } else {
+        opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+      }
       atualizarLog(msgBau);
     }
     return;
@@ -1636,8 +1862,8 @@ function vencerBatalha() {
 
   // SALA COMUM (1–9): chance de drop aleatório
   // Chance de consumível: 25% | Chance de item/arma: escala com o andar (5% no andar 1 até 20% no andar 10)
-  const chanceConsumivel = 0.25;
-  const chanceArma = 0.05 + (andarAtual * 0.015); // 5% andar 1 → ~20% andar 10
+  const chanceConsumivel = 0.25 * multiplicadorDificuldade;
+  const chanceArma = (0.05 + (andarAtual * 0.015)) * multiplicadorDificuldade; // 5% andar 1 → ~20% andar 10
   const roll = Math.random();
 
   let msgSala = `Batalha vencida! +${xpBonusSala} XP e +${goldSala}G.`;
@@ -1666,6 +1892,7 @@ function vencerBatalha() {
   }
 
   if (nivelUp > 0) {
+    skillsPendenteDeEscolha = nivelUp;
     estadoAtual = "LEVEL_UP_SKILL";
     atualizarLog(msgSala, () => {
       setTimeout(() => escolherNovaSkillLevelUp(), 800);
@@ -1681,17 +1908,23 @@ function escolherNovaSkillLevelUp() {
   const opcoes = sortearTresHabilidades(jogador.level, jogador.skills);
   if (opcoes.length === 0) {
     atualizarLog("Você já tem todas as habilidades disponíveis!");
+    skillsPendenteDeEscolha = 0;
     irParaAlocacaoDeAtributo();
     return;
   }
 
-  atualizarLog("LEVEL UP! Escolha uma nova habilidade:");
+  atualizarLog(`LEVEL UP! Escolha uma nova habilidade (Pendentes: ${skillsPendenteDeEscolha}):`);
   opcoesAcao = opcoes.map(op => ({
     texto: `${op.nome} (${op.raridade})`,
     descricao: op.descricao,
     acao: () => {
       jogador.skills.push(op);
-      irParaAlocacaoDeAtributo();
+      skillsPendenteDeEscolha--;
+      if (skillsPendenteDeEscolha > 0) {
+        escolherNovaSkillLevelUp();
+      } else {
+        irParaAlocacaoDeAtributo();
+      }
     }
   }));
   render();
@@ -1701,7 +1934,11 @@ function irParaAlocacaoDeAtributo() {
   estadoAtual = "ALOCAR_ATRIBUTO";
   if (jogador.pontosDeAtributo <= 0) {
     estadoAtual = "EXPLORACAO";
-    opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+    if (andarAtual === 10 && salaAtual === 10) {
+      opcoesAcao = [{ texto: "Voltar para o Lobby", acao: () => { estadoAtual = "LOBBY"; render(); } }];
+    } else {
+      opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+    }
     atualizarLog("Você subiu de nível!");
     return;
   }

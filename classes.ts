@@ -1,7 +1,7 @@
-import { EncantoDoBardo, DominioDaMorte, type Habilidade } from './actions.js';
+import { EncantoDoBardo, DominioDaMorte, VelocidadeSuperior, type Habilidade } from './actions.js';
 import { listaArmas } from './artefacts.js';
 import type { mainCharacter } from './mainCharacter.js';
-import type { SaveData } from './saveData.js';
+import { temFlag, type SaveData } from './saveData.js';
 
 // =====================================================================
 // INTERFACE DE CLASSE
@@ -71,6 +71,16 @@ export const listaClasses: IClasse[] = [
     armaInicial: 'Tomo Antigo',
     passivas: [new DominioDaMorte()],
   },
+  {
+    nome: 'Keth',
+    descricao: 'Um lendário ladino que já contribuiu para a sobrevivência do mundo uma vez.',
+    andarDesbloqueio: 999, // Desbloqueio especial
+    condicaoDesbloqueio: (save) => !!save.flags?.includes("EXP_1_HARD_DEX_20"),
+    mensagemRequisito: "Completar a Expedição 1 no modo Difícil com pelo menos 20 de Destreza.",
+    atributos: { strength: 0, dexterity: 5, intelligence: 1, luck: 3, defense: 1 },
+    armaInicial: 'Adaga',
+    passivas: [new VelocidadeSuperior()],
+  },
 ];
 
 // =====================================================================
@@ -98,6 +108,10 @@ export function aplicarClasse(jogador: mainCharacter, classe: IClasse): void {
   jogador.intelligence += classe.atributos.intelligence;
   jogador.luck += classe.atributos.luck;
   jogador.defense += classe.atributos.defense;
+
+  if (temFlag('marco_10_parrys')) {
+    jogador.dexterity += 3;
+  }
 
   const arma = listaArmas[classe.armaInicial];
   if (arma) {

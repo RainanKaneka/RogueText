@@ -14,6 +14,8 @@ export interface SaveData {
   acessoriosEquipados?: string[];
   itemSeguroEquipado?: string | undefined;
   armaEquipada?: string;
+  historicoAndares?: Record<number, number>;
+  expedicoesConcluidas?: string[];
 }
 
 const DEFAULT_SAVE: SaveData = {
@@ -25,6 +27,8 @@ const DEFAULT_SAVE: SaveData = {
   consumiveisExtras: [],
   flags: [],
   drops: {},
+  historicoAndares: {},
+  expedicoesConcluidas: [],
 };
 
 export function lerSave(): SaveData {
@@ -54,6 +58,26 @@ export function atualizarAndarMax(andarAtual: number): void {
     save.andarMaxAlcancado = andarAtual;
     salvarSave(save);
   }
+}
+
+export function registrarExpedicaoConcluida(expedicaoId: string): void {
+  const save = lerSave();
+  if (!save.expedicoesConcluidas) {
+    save.expedicoesConcluidas = [];
+  }
+  if (!save.expedicoesConcluidas.includes(expedicaoId)) {
+    save.expedicoesConcluidas.push(expedicaoId);
+    salvarSave(save);
+  }
+}
+
+export function registrarChegadaAndar(andar: number): void {
+  const save = lerSave();
+  if (!save.historicoAndares) {
+    save.historicoAndares = {};
+  }
+  save.historicoAndares[andar] = (save.historicoAndares[andar] || 0) + 1;
+  salvarSave(save);
 }
 
 export function adicionarGold(quantidade: number): void {

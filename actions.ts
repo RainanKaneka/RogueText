@@ -55,7 +55,10 @@ export class GolpeForte implements Habilidade {
     const bonusStr = calcBonusAtributo(jogador.strength, 0.15);
     const dano = Math.floor(danoBase + bonusStr);
     inimigos[alvo]!.life -= dano;
-    console.log(chalk.yellowBright(`💪 Você acerta um GOLPE FORTE no ${inimigos[alvo]!.name} causando ${dano} de dano! (Bônus STR: +${bonusStr})`));
+    const lifesteal = jogador.aplicarRouboDeVida(dano);
+    let logMsg = `💪 Você acerta um GOLPE FORTE no ${inimigos[alvo]!.name} causando ${dano} de dano! (Bônus STR: +${bonusStr})`;
+    if (lifesteal > 0) logMsg += ` (Roubou ${lifesteal} vida)`;
+    console.log(chalk.yellowBright(logMsg));
     return true;
   }
 }
@@ -80,7 +83,10 @@ export class BolaDeFogo implements Habilidade {
     for (let inimigo of inimigos) {
       if (inimigo.life > 0) {
         inimigo.life -= danoTotal;
-        console.log(`O ${inimigo.name} sofreu ${danoTotal} de dano mágico!`);
+        const lifesteal = jogador.aplicarRouboDeVida(danoTotal);
+        let msg = `O ${inimigo.name} sofreu ${danoTotal} de dano mágico!`;
+        if (lifesteal > 0) msg += ` (Roubou ${lifesteal} vida)`;
+        console.log(msg);
       }
     }
     return true;
@@ -165,7 +171,8 @@ export class DrenarVida implements Habilidade {
     const cura = Math.floor(dano / 2 + bonusInt);
     inimigos[alvo]!.life -= dano;
     jogador.curar(cura);
-    console.log(chalk.magentaBright(`🩸 Você drena ${inimigos[alvo]!.name}! Dano: ${dano} (Bônus STR: +${bonusStr}) | Cura: ${cura} (Bônus INT: +${bonusInt})`));
+    const lifestealExtra = jogador.aplicarRouboDeVida(dano);
+    console.log(chalk.magentaBright(`🩸 Você drena ${inimigos[alvo]!.name}! Dano: ${dano} (Bônus STR: +${bonusStr}) | Cura base: ${cura} (Bônus INT: +${bonusInt})${lifestealExtra > 0 ? ` | Roubo Sangria: ${lifestealExtra}` : ''}`));
     return true;
   }
 }
@@ -218,14 +225,18 @@ export class Velocidade implements Habilidade {
       return false;
     }
     jogador.mana -= this.custoMana;
+    const duracao = jogador.classe === "Keth" ? 9999 : 3;
     jogador.activeBuffs.push({
       name: "Velocidade",
-      duration: 3,
+      duration: duracao,
       onExpire: (_j: mainCharacter) => {
         console.log(chalk.yellowBright("[Velocidade] O efeito de Velocidade se encerrou."));
       }
     });
-    console.log(chalk.cyanBright("💨 Velocidade ativada! Janela de Parry aumentada por 3 turnos!"));
+    const msg = jogador.classe === "Keth" 
+      ? "💨 Velocidade ativada! Janela de Parry aumentada para todo o combate!"
+      : "💨 Velocidade ativada! Janela de Parry aumentada por 3 turnos!";
+    console.log(chalk.cyanBright(msg));
     return true;
   }
 }
@@ -246,15 +257,19 @@ export class CortesFan implements Habilidade {
     const danoPorCorte = Math.floor((jogador.danoComArma() / 2) + bonusDex);
     let log = `👻 Cortes Fantasma! 3 cortes de ${danoPorCorte} dano cada (Bônus DEX: +${bonusDex})`;
     for (let i = 0; i < 3; i++) {
+      let ls = 0;
       // Corte no alvo principal
       if (inimigos[alvo] && inimigos[alvo]!.life > 0) {
         inimigos[alvo]!.life -= danoPorCorte;
+        ls += jogador.aplicarRouboDeVida(danoPorCorte);
       }
       // Atravessa para o segundo inimigo (próximo ativo)
       const segundoAlvo = inimigos.findIndex((ini, idx) => idx !== alvo && ini.life > 0);
       if (segundoAlvo !== -1) {
         inimigos[segundoAlvo]!.life -= danoPorCorte;
+        ls += jogador.aplicarRouboDeVida(danoPorCorte);
       }
+      if (ls > 0) log += `\n (Corte ${i+1} curou ${ls} vida!)`;
     }
     console.log(chalk.cyanBright(log));
     return true;
@@ -313,7 +328,8 @@ export class CancaoEnlouquecedora implements Habilidade {
       // Só um inimigo: ataca a si mesmo
       const dano = Math.floor(vivos[0]!.attackPower * multiplicador);
       vivos[0]!.life -= dano;
-      log += `\n${vivos[0]!.name} ataca a si mesmo! (${dano} de dano)`;
+      const ls = jogador.aplicarRouboDeVida(dano);
+      log += `\n${vivos[0]!.name} ataca a si mesmo! (${dano} de dano)` + (ls > 0 ? ` (Roubou ${ls} vida)` : '');
     } else {
       // Cada inimigo ataca o próximo na lista (circular)
       for (let i = 0; i < vivos.length; i++) {
@@ -321,7 +337,8 @@ export class CancaoEnlouquecedora implements Habilidade {
         const alvo = vivos[(i + 1) % vivos.length]!;
         const dano = Math.floor(atacante.attackPower * multiplicador);
         alvo.life -= dano;
-        log += `\n${atacante.name} ataca ${alvo.name}! (${dano} de dano)`;
+        const ls = jogador.aplicarRouboDeVida(dano);
+        log += `\n${atacante.name} ataca ${alvo.name}! (${dano} de dano)` + (ls > 0 ? ` (Roubou ${ls} vida)` : '');
       }
     }
 
@@ -385,6 +402,14 @@ export class RajadaMistica implements Habilidade {
   }
 }
 
+export class VelocidadeSuperior implements Habilidade {
+  nome = "Velocidade Superior";
+  descricao = "Passiva (Keth). Ao derrotar um inimigo, tem 5% de chance de poder atacar novamente (Escala com Destreza, max 35%).";
+  tipo = "PASSIVA" as const;
+  raridade = "UNICA" as const;
+  usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean { return true; }
+}
+
 export const TODAS_HABILIDADES: Habilidade[] = [
   new GolpeForte(),
   new BolaDeFogo(),
@@ -403,6 +428,7 @@ export const TODAS_HABILIDADES: Habilidade[] = [
   new MataGigantes(),
   new SorteDePrincipiante(),
   new RajadaMistica(),
+  new VelocidadeSuperior(),
 ];
 
 // 5. O ALGORITMO DE SORTEIO (GACHA)

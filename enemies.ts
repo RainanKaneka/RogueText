@@ -73,5 +73,7 @@ export const battleEnemies = {
   "Centopeia Anciã": { attackPower: 13, life: 80 },
   "Rei Perdido": { attackPower: 16, life: 75 },
   "Rainha da Praga": { attackPower: 17, life: 70 },
-  "O Segundo Dedo": { attackPower: 20, life: 100 }
-}
+  "O Segundo Dedo": { attackPower: 20, life: 100 },
+  "Dragão Negro": { attackPower: 25, life: 120 },
+  "O Errante": { attackPower: 30, life: 150 },
+} 
