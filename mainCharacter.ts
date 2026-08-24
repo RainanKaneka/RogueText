@@ -152,6 +152,17 @@ export class mainCharacter extends Attack {
     this.equippedAccessories = [];
   }
 
+  aplicarRouboDeVida(dano: number): number {
+    let cura = 0;
+    if (this._accessoryPassivaAtiva === "Sangria") {
+      cura = Math.floor(dano * 0.10);
+      if (cura > 0) {
+        this.life = Math.min(this.maxLife, this.life + cura);
+      }
+    }
+    return cura;
+  }
+
   levelUp(): boolean {
     if (this.experience >= this.experienceToNextLevel) {
       this.level += 1;
