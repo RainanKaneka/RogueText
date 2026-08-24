@@ -8,7 +8,8 @@
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
-  font-family: 'Geist Pixel', monospace; /* Fallback to monospace se Geist Pixel não estiver instalada/disponível */
+  font-family: 'Geist Pixel', monospace;
+  /* Fallback to monospace se Geist Pixel não estiver instalada/disponível */
   margin: 0;
   padding: 0;
   display: flex;
@@ -121,10 +122,21 @@ body {
   white-space: nowrap;
 }
 
-.bg-red { background-color: #c92a2a; }
-.bg-blue { background-color: #1971c2; }
-.bg-yellow { background-color: #f59f00; }
-.bg-gray { background-color: #555; }
+.bg-red {
+  background-color: #c92a2a;
+}
+
+.bg-blue {
+  background-color: #1971c2;
+}
+
+.bg-yellow {
+  background-color: #f59f00;
+}
+
+.bg-gray {
+  background-color: #555;
+}
 
 /* ACTION LOG (Ação atual) */
 .action-log {
@@ -165,14 +177,37 @@ body {
   margin-right: 5px;
 }
 
-.text-green { color: #51cf66; }
-.text-red { color: #ff6b6b; }
-.text-yellow { color: #fcc419; }
-.text-blue { color: #339af0; }
-.text-magenta { color: #f06595; }
-.text-cyan { color: #22b8cf; }
-.text-cyan { color: #22b8cf; }
-.text-gray { color: #adb5bd; }
+.text-green {
+  color: #51cf66;
+}
+
+.text-red {
+  color: #ff6b6b;
+}
+
+.text-yellow {
+  color: #fcc419;
+}
+
+.text-blue {
+  color: #339af0;
+}
+
+.text-magenta {
+  color: #f06595;
+}
+
+.text-cyan {
+  color: #22b8cf;
+}
+
+.text-cyan {
+  color: #22b8cf;
+}
+
+.text-gray {
+  color: #adb5bd;
+}
 
 /* TOOLTIPS PARA BOTÕES */
 .btn-action-container {

@@ -3,7 +3,7 @@ import { enemy, battleEnemies } from "./enemies";
 import { listaConsumiveis, listaArmas, listaArmaduras, listaAcessorios, abrirBau, bauDoAndar } from "./artefacts";
 import { sortearTresHabilidades } from "./actions";
 import { getClassesDisponiveis, getClassesBloqueadas, aplicarClasse } from "./classes";
-import { lerSave, salvarSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras, desbloquearFlag, adicionarDrop, lerDrops, salvarLoadout, lerLoadout, removerItemExtra, consumirDrops, adicionarArmaduraExtra, adicionarAcessorioExtra, temFlag, registrarChegadaAndar } from "./saveData";
+import { lerSave, salvarSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras, desbloquearFlag, adicionarDrop, lerDrops, salvarLoadout, lerLoadout, removerItemExtra, consumirDrops, adicionarArmaduraExtra, adicionarAcessorioExtra, temFlag, registrarChegadaAndar, registrarExpedicaoConcluida } from "./saveData";
 import { rolarDrops } from "./drops.js";
 import { initMusic, playMusic, playSfx, updateHeartbeat, setMusicVolume, setSfxVolume, musicVolume, sfxVolume } from "./music.js";
 import { showParryBar, setParryWindowBonus, parryStreak } from "./parry.js";
@@ -27,7 +27,12 @@ const bossesPorAndar: { [key: number]: string[] } = {
   2: ["Hidra"],
   3: ["Serpente de Fogo"],
   4: ["Servo das Sombras"],
-  5: ["Centopeia Anciã"]
+  5: ["Centopeia Anciã"],
+  6: ["Rei Perdido"],
+  7: ["Rainha da Praga"],
+  8: ["O Segundo Dedo"],
+  9: ["Dragão Negro"],
+  10: ["O Errante"]
 };
 
 // Estado da Aplicação
@@ -1047,7 +1052,7 @@ function render() {
       </div>
       <div class="stats-grid" style="margin-top:4px;">
         <span style="color:#74c0fc;">🛡️ ${jogador.equippedArmor?.name || "Sem Armadura"}</span>
-        <span style="color:#a9e34b;">💍 ${jogador.equippedAccessory?.name || "Sem Acessório"}</span>
+        <span style="color:#a9e34b;">💍 ${jogador.equippedAccessories.length > 0 ? jogador.equippedAccessories.map(a => a.name).join(", ") : "Sem Acessório"}</span>
       </div>
       ${jogador.skills.filter(s => s.tipo === "PASSIVA").length > 0 ? `
       <div style="margin-top:8px; padding-top:6px; border-top: 1px solid #333;">
@@ -1831,7 +1836,7 @@ function vencerBatalha() {
       msgBau += `🧪 Consumível encontrado: ${recompensa.item.name}`;
     }
 
-    if (andarAtual === 10) {
+    if (andarAtual >= 10) {
       if (multiplicadorDificuldade === 1.0) {
         registrarExpedicaoConcluida("EXP_1_NORMAL");
       } else if (multiplicadorDificuldade === 1.5 && jogador.dexterity >= 20) {
@@ -1850,7 +1855,7 @@ function vencerBatalha() {
       });
     } else {
       estadoAtual = "EXPLORACAO";
-      if (andarAtual === 10) {
+      if (andarAtual >= 10) {
         opcoesAcao = [{ texto: "Voltar para o Lobby", acao: () => { estadoAtual = "LOBBY"; render(); } }];
       } else {
         opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
@@ -1934,12 +1939,13 @@ function irParaAlocacaoDeAtributo() {
   estadoAtual = "ALOCAR_ATRIBUTO";
   if (jogador.pontosDeAtributo <= 0) {
     estadoAtual = "EXPLORACAO";
-    if (andarAtual === 10 && salaAtual === 10) {
+    if (andarAtual >= 10 && salaAtual === 10) {
       opcoesAcao = [{ texto: "Voltar para o Lobby", acao: () => { estadoAtual = "LOBBY"; render(); } }];
+      atualizarLog("🎉 EXPEDIÇÃO CONCLUÍDA! Você finalizou o Andar 10 e sua progressão foi salva.");
     } else {
       opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+      atualizarLog("Você subiu de nível!");
     }
-    atualizarLog("Você subiu de nível!");
     return;
   }
 

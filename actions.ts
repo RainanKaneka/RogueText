@@ -179,10 +179,10 @@ export class DrenarVida implements Habilidade {
 
 export class FuriaBerserker implements Habilidade {
   nome = "Fúria Berserker";
-  descricao = "Usa 20 Energia. Aumenta Força no combate — escala com Força (STR).";
+  descricao = "Usa 70 Energia. Aumenta Força por 3 turnos — escala com Força (STR).";
   tipo = "ATIVA" as const;
   raridade = "COMUM" as const;
-  custoEnergia = 20;
+  custoEnergia = 70;
   usar(jogador: mainCharacter, inimigos: enemy[], alvo: number): boolean {
     if (jogador.energy < this.custoEnergia) {
       console.log(chalk.blue(`Você não tem Energia suficiente! (Necessário: ${this.custoEnergia})`));
@@ -191,7 +191,17 @@ export class FuriaBerserker implements Habilidade {
     jogador.energy -= this.custoEnergia;
     const bonusStr = Math.max(1, Math.floor(jogador.strength * 0.5));
     jogador.strength += bonusStr;
-    console.log(chalk.redBright(`😤 Você entra em FÚRIA! +${bonusStr} de Força permanente! (Força atual: ${jogador.strength})`));
+    
+    jogador.activeBuffs.push({
+      name: "Fúria Berserker",
+      duration: 3,
+      onExpire: (j) => {
+        j.strength -= bonusStr;
+        console.log(chalk.yellowBright(`[Esgotamento] A Fúria Berserker acabou. Você perdeu ${bonusStr} de Força.`));
+      }
+    });
+
+    console.log(chalk.redBright(`😤 Você entra em FÚRIA! +${bonusStr} de Força por 3 turnos! (Força atual: ${jogador.strength})`));
     return true;
   }
 }

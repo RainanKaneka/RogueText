@@ -33,7 +33,7 @@ export function showParryBar(onSuccess: () => void, onFail: () => void): void {
     const windowSize = Math.max(MIN_WINDOW, BASE_WINDOW - parryStreak * WINDOW_DECREMENT + parryWindowBonus);
 
     // Posição da janela de sucesso (randomizada levemente, mas sempre com espaço nas bordas)
-    const minPos = 15;
+    const minPos = 25;
     const maxPos = 90 - windowSize;
     const windowPos = minPos + Math.random() * (maxPos - minPos);
 
