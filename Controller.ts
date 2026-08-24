@@ -12,9 +12,9 @@ import { showParryBar, setParryWindowBonus, parryStreak } from "./parry.js";
 function getWeaponTooltip(arma: any): string {
   if (!arma || !arma.scaling) return "";
   const s = arma.scaling;
-  let t = `Scaling: FOR: ${s.strength} | DES: ${s.dexterity} | INT: ${s.intelligence}`;
+  let t = `<strong style="color:var(--accent-color)">Scaling</strong><br>FOR: ${s.strength} | DES: ${s.dexterity} | INT: ${s.intelligence}`;
   if (s.luck) t += ` | SOR: ${s.luck}`;
-  return t;
+  return `<div class="btn-tooltip">${t}</div>`;
 }
 
 const monstrosPorAndar: { [key: number]: string[] } = {
@@ -285,9 +285,9 @@ function render() {
       armasAVenda.forEach((arma, idx) => {
         const comprado = save.armasExtras.includes(arma.name);
         if (comprado) {
-          html += `<button class="btn-action" disabled title="${getWeaponTooltip(arma)}">${arma.name} — Comprado</button>`;
+          html += `<div class="has-tooltip btn-action-container" style="margin-bottom:5px;"><button class="btn-action" disabled>${arma.name} — Comprado</button>${getWeaponTooltip(arma)}</div>`;
         } else {
-          html += `<button class="btn-action" id="btn-comprar-arma-${idx}" title="${getWeaponTooltip(arma)}">${arma.name} (${arma.raridade}) — ${arma.price}G</button>`;
+          html += `<div class="has-tooltip btn-action-container" style="margin-bottom:5px;"><button class="btn-action" id="btn-comprar-arma-${idx}">${arma.name} (${arma.raridade}) — ${arma.price}G</button>${getWeaponTooltip(arma)}</div>`;
         }
       });
       html += `<h3 style="margin-top:12px;">Consumíveis</h3>`;
@@ -319,9 +319,9 @@ function render() {
           const precoVenda = PRECO_REVENDA[arma.raridade] ?? 50;
           const isEquipada = jogador ? jogador.equippedWeapon?.name === arma.name : false;
           if (isEquipada) {
-            html += `<button class="btn-action" disabled style="opacity:0.5;" title="${getWeaponTooltip(arma)}">${arma.name} (${arma.raridade}) — Equipada</button>`;
+            html += `<div class="has-tooltip btn-action-container" style="margin-bottom:5px;"><button class="btn-action" disabled style="opacity:0.5;">${arma.name} (${arma.raridade}) — Equipada</button>${getWeaponTooltip(arma)}</div>`;
           } else {
-            html += `<button class="btn-action" id="btn-vender-arma-${idx}" style="border-color:#c92a2a;" title="${getWeaponTooltip(arma)}">${arma.name} (${arma.raridade}) — Vender por ${precoVenda}G</button>`;
+            html += `<div class="has-tooltip btn-action-container" style="margin-bottom:5px;"><button class="btn-action" id="btn-vender-arma-${idx}" style="border-color:#c92a2a;">${arma.name} (${arma.raridade}) — Vender por ${precoVenda}G</button>${getWeaponTooltip(arma)}</div>`;
           }
         });
       } else {
@@ -547,12 +547,13 @@ function render() {
       "LENDARIA": "#fcc419"
     };
 
-    function cardItem(nome: string, sub: string, rar: string, title?: string) {
+    function cardItem(nome: string, sub: string, rar: string, tooltipHtml?: string) {
       const cor = rarColor[rar] ?? "#aaa";
       return `
-        <div ${title ? `title="${title}"` : ""} style="background:rgba(255,255,255,0.05); border:1px solid #444; border-radius:6px; padding:8px 12px;">
+        <div class="${tooltipHtml ? 'has-tooltip' : ''}" style="background:rgba(255,255,255,0.05); border:1px solid #444; border-radius:6px; padding:8px 12px; position:relative;">
           <div style="color:${cor}; font-weight:bold; font-size:0.9rem;">${nome}</div>
           <div style="color:#888; font-size:0.8rem; margin-top:2px;">${sub}</div>
+          ${tooltipHtml || ''}
         </div>`;
     }
 
@@ -933,11 +934,14 @@ function render() {
             <div>
               <h3 style="color:#ffd43b; margin:0 0 8px 0;">⚔️ Arma</h3>
               ${armasDisponiveis.map(a => `
-                <button id="lb-arma-${a.name.replace(/\s/g, '_')}" class="btn-action" title="${getWeaponTooltip(a)}"
-                  style="width:100%; margin-bottom:5px; ${selectedArma === a.name ? 'border-color:#ffd43b; background:rgba(255,212,59,0.15);' : ''}">
-                  <span style="color:${rarColor[a.raridade] ?? '#aaa'};">${a.name}</span><br>
-                  <small>${a.damage} base | ${a.raridade}</small>
-                </button>`).join('')}
+                <div class="has-tooltip btn-action-container" style="margin-bottom:5px;">
+                  <button id="lb-arma-${a.name.replace(/\s/g, '_')}" class="btn-action"
+                    style="width:100%; ${selectedArma === a.name ? 'border-color:#ffd43b; background:rgba(255,212,59,0.15);' : ''}">
+                    <span style="color:${rarColor[a.raridade] ?? '#aaa'};">${a.name}</span><br>
+                    <small>${a.damage} base | ${a.raridade}</small>
+                  </button>
+                  ${getWeaponTooltip(a)}
+                </div>`).join('')}
             </div>
             <!-- ARMADURAS -->
             <div>
