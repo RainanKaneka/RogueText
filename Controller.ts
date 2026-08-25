@@ -856,14 +856,6 @@ function render() {
     });
     html += `</div>`;
 
-    if (bloqueadas.length > 0) {
-      html += `<h3 style="margin-top:20px; color:#555;">Classes Bloqueadas</h3><div style="text-align:left; color:#555;">`;
-      bloqueadas.forEach(c => {
-        html += `<p>🔒 ${c.nome} - Chegue ao Andar ${c.andarDesbloqueio}</p>`;
-      });
-      html += `</div>`;
-    }
-
     app.innerHTML = html;
 
     disponiveis.forEach((classe, idx) => {
