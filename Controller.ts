@@ -1370,24 +1370,6 @@ function gerarInimigos() {
     }
   }
   
-    if (salaAtual === 10) {
-      estadoAtual = "EVENTO_BOSS";
-      logMensagem = `O ar fica pesado... O Boss ${inimigosAtuais[0]?.name} apareceu!`;
-      opcoesAcao = [
-        {
-          texto: "Enfrentar",
-          acao: () => {
-            estadoAtual = "BATALHA";
-            atualizarLog(`O combate contra ${inimigosAtuais[0]?.name} começou!`);
-            menuBatalhaPrincipal();
-          }
-        }
-      ];
-    } else {
-      estadoAtual = "BATALHA";
-      menuBatalhaPrincipal();
-    }
-  
   if (furiaPenalidade) {
     furiaPenalidadeAtiva = true;
     furiaPenalidade = false;
@@ -1399,7 +1381,24 @@ function gerarInimigos() {
 
   primeiroTurnoDoCombate = true;
 
-  menuBatalhaPrincipal();
+  if (salaAtual === 10) {
+    estadoAtual = "EVENTO_BOSS";
+    logMensagem = `O ar fica pesado... O Boss ${inimigosAtuais[0]?.name} apareceu!`;
+    opcoesAcao = [
+      {
+        texto: "Enfrentar",
+        acao: () => {
+          estadoAtual = "BATALHA";
+          atualizarLog(`O combate contra ${inimigosAtuais[0]?.name} começou!`);
+          menuBatalhaPrincipal();
+        }
+      }
+    ];
+    render();
+  } else {
+    estadoAtual = "BATALHA";
+    menuBatalhaPrincipal();
+  }
 }
 
 function menuBatalhaPrincipal() {
