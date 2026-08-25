@@ -16,6 +16,7 @@ export interface Habilidade {
   raridade: Raridade; // NOVO: Adiciona a propriedade raridade
   custoMana?: number;     // NOVO
   custoEnergia?: number;  // NOVO
+  classeExclusiva?: string; // NOVO: Restringe a habilidade para uma classe específica
   usar(jogador: mainCharacter, inimigos: enemy[], alvoAtual: number): boolean; // NOVO: Mude para retornar boolean
 }
 
@@ -373,6 +374,7 @@ export class EncantoDoBardo implements Habilidade {
   descricao = "Passiva Exclusiva. No final do seu turno, há chance de encantar um inimigo (ele atacará os próprios aliados). Curas recebidas são 1.25x mais efetivas.";
   tipo = "PASSIVA" as const;
   raridade = "LENDARIA" as const;
+  classeExclusiva = "Bardo";
   usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean { return true; }
 }
 
@@ -381,6 +383,7 @@ export class DominioDaMorte implements Habilidade {
   descricao = "Passiva Exclusiva. Causa 1.5x de dano contra mortos-vivos. Além disso, inimigos mortos podem reviver como seus aliados.";
   tipo = "PASSIVA" as const;
   raridade = "LENDARIA" as const;
+  classeExclusiva = "Necromante";
   usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean { return true; }
 }
 
@@ -417,6 +420,7 @@ export class VelocidadeSuperior implements Habilidade {
   descricao = "Passiva (Keth). Ao derrotar um inimigo, tem 5% de chance de poder atacar novamente (Escala com Destreza, max 35%).";
   tipo = "PASSIVA" as const;
   raridade = "UNICA" as const;
+  classeExclusiva = "Keth";
   usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean { return true; }
 }
 
@@ -442,12 +446,12 @@ export const TODAS_HABILIDADES: Habilidade[] = [
 ];
 
 // 5. O ALGORITMO DE SORTEIO (GACHA)
-export function sortearTresHabilidades(nivel: number, habilidadesAprendidas: Habilidade[] = []): Habilidade[] {
+export function sortearTresHabilidades(nivel: number, habilidadesAprendidas: Habilidade[] = [], classeJogador: string = ""): Habilidade[] {
   const nomesAprendidos = new Set(habilidadesAprendidas.map(h => h.nome));
 
-  // Filtra do pool as habilidades que o jogador já aprendeu
+  // Filtra do pool as habilidades que o jogador já aprendeu e remove exclusivas de outras classes
   let pool = [...TODAS_HABILIDADES]
-    .filter(h => !nomesAprendidos.has(h.nome))
+    .filter(h => !nomesAprendidos.has(h.nome) && (!h.classeExclusiva || h.classeExclusiva === classeJogador))
     .sort(() => Math.random() - 0.5);
 
   const opcoes: Habilidade[] = [];

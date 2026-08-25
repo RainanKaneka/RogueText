@@ -17,6 +17,38 @@ function getWeaponTooltip(arma: any): string {
   return `<div class="btn-tooltip">${t}</div>`;
 }
 
+export let runStats = {
+  danoCausado: 0,
+  danoRecebido: 0,
+  vidaCurada: 0,
+  esquivas: 0,
+  acertosCriticos: 0,
+  parryAcertos: 0,
+  parryErros: 0,
+  mortoPor: "",
+  andarDaMorte: 0,
+  salaDaMorte: 0,
+  resultado: "" // "VITÓRIA", "MORTE" ou "FUGA"
+};
+
+let triggerScreenShake = false;
+
+export function resetRunStats() {
+  runStats = {
+    danoCausado: 0,
+    danoRecebido: 0,
+    vidaCurada: 0,
+    esquivas: 0,
+    acertosCriticos: 0,
+    parryAcertos: 0,
+    parryErros: 0,
+    mortoPor: "",
+    andarDaMorte: 0,
+    salaDaMorte: 0,
+    resultado: ""
+  };
+}
+
 const monstrosPorAndar: { [key: number]: string[] } = {
   1: ["Goblin", "Pequeno Troll", "Cão de Caça", "Morcego Raivoso"],
   2: ["Homúnculo", "Esqueleto", "Zumbi", "Múmia"],
@@ -44,7 +76,7 @@ const bossesPorAndar: { [key: number]: string[] } = {
 };
 
 // Estado da Aplicação
-type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS" | "FAST_TRAVEL";
+type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS" | "FAST_TRAVEL" | "ESTATISTICAS_RUN" | "CONFIRMAR_VENDA";
 
 let estadoAtual: GameState = "LOBBY";
 let jogador: mainCharacter;
@@ -62,6 +94,8 @@ let furiaPenalidade: boolean = false;    // Próximo combate terá penalidade
 let furiaPenalidadeAtiva: boolean = false; // Penalidade ativa no combate atual
 let furiaSkipouPrimeiroTurno: boolean = false; // Já pulou o 1º turno deste combate
 let primeiroTurnoDoCombate: boolean = true;
+let primeiraSalaCombate: boolean = true;
+let assassinoCritou: boolean = false;
 
 // Preços de revenda por raridade (em ouro)
 const PRECO_REVENDA: Record<string, number> = {
@@ -158,6 +192,14 @@ function atualizarLog(msg: string, onComplete?: () => void) {
 }
 
 function render() {
+  const app = document.getElementById("app")!;
+  if (triggerScreenShake) {
+    app.classList.remove("shake-screen");
+    void app.offsetWidth; // Force reflow
+    app.classList.add("shake-screen");
+    triggerScreenShake = false;
+  }
+
   app.innerHTML = "";
 
   if (typeof jogador !== "undefined" && jogador) {
@@ -168,6 +210,7 @@ function render() {
 
   if (estadoAtual === "LOBBY") {
     app.innerHTML = `
+      <h1 id="game-title">RogueText</h1>
       <div style="display:flex; flex-direction:column; gap:10px;">
         <button class="btn-lobby" id="btn-nova-run">Expedições</button>
         <button class="btn-lobby" id="btn-loja">Loja</button>
@@ -193,10 +236,51 @@ function render() {
     return;
   }
 
+  if (estadoAtual === "ESTATISTICAS_RUN") {
+    let titulo = runStats.resultado === "VITÓRIA" ? "EXPEDIÇÃO CONCLUÍDA" :
+      runStats.resultado === "FUGA" ? "FUGA BEM SUCEDIDA" : "VOCÊ MORREU";
+
+    let color = runStats.resultado === "VITÓRIA" ? "#ffd700" :
+      runStats.resultado === "FUGA" ? "#4dabf7" : "#fa5252";
+
+    let causaMorteHTML = "";
+    if (runStats.resultado === "MORTE") {
+      causaMorteHTML = `<p style="color: #ff8787; text-align: center;">Morto por <strong>${runStats.mortoPor}</strong> no Andar ${runStats.andarDaMorte}, Sala ${runStats.salaDaMorte}</p>`;
+    }
+
+    app.innerHTML = `
+      <div style="max-width: 600px; margin: 0 auto; background: rgba(0,0,0,0.8); border: 2px solid ${color}; padding: 20px; border-radius: 8px;">
+        <h1 style="color: ${color}; text-align: center; margin-top: 0;">${titulo}</h1>
+        ${causaMorteHTML}
+        
+        <h3 style="border-bottom: 1px solid #444; padding-bottom: 5px;">Estatísticas de Combate</h3>
+        <ul style="list-style: none; padding: 0; margin: 10px 0; font-size: 1.1rem; line-height: 1.6;">
+          <li> <strong>Dano Causado:</strong> <span style="color:#ffd43b">${runStats.danoCausado}</span></li>
+          <li> <strong>Dano Recebido:</strong> <span style="color:#fa5252">${runStats.danoRecebido}</span></li>
+          <li> <strong>Vida Curada:</strong> <span style="color:#69db7c">${runStats.vidaCurada}</span></li>
+          <li> <strong>Esquivas:</strong> <span style="color:#4dabf7">${runStats.esquivas}</span></li>
+          <li> <strong>Acertos Críticos:</strong> <span style="color:#ff922b">${runStats.acertosCriticos}</span></li>
+          <li> <strong>Parry (Acertos / Erros):</strong> <span style="color:#a9e34b">${runStats.parryAcertos}</span> / <span style="color:#ff8787">${runStats.parryErros}</span></li>
+        </ul>
+        
+        <div style="text-align: center; margin-top: 20px;">
+          <button class="btn-lobby" id="btn-voltar-lobby" style="width: 100%;">Voltar ao Lobby</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById("btn-voltar-lobby")!.onclick = () => {
+      estadoAtual = "LOBBY";
+      render();
+    };
+
+    return;
+  }
+
   if (estadoAtual === "EXPEDICOES") {
     const save = lerSave();
     const hardDesbloqueado = save.expedicoesConcluidas?.includes("EXP_1_NORMAL");
-    
+
     let html = `<h2>Expedições</h2>
       <div style="display:flex; flex-direction:column; gap:10px; margin-bottom: 20px;">
         <button class="btn-lobby" id="btn-exp1-normal">Expedição 1 (Normal)</button>
@@ -785,13 +869,13 @@ function render() {
     disponiveis.forEach((classe, idx) => {
       document.getElementById(`btn-classe-${idx}`)!.onclick = () => {
         aplicarClasse(jogador, classe);
-        
+
         const saveFastTravel = lerSave();
         const andaresDisponiveis = Object.keys(saveFastTravel.historicoAndares || {})
           .map(Number)
           .filter(a => (saveFastTravel.historicoAndares?.[a] ?? 0) >= 10 && a > 1)
-          .sort((a,b) => b-a);
-          
+          .sort((a, b) => b - a);
+
         if (andaresDisponiveis.length > 0) {
           estadoAtual = "FAST_TRAVEL";
           render();
@@ -816,7 +900,7 @@ function render() {
     const andaresDisponiveis = Object.keys(saveFastTravel.historicoAndares || {})
       .map(Number)
       .filter(a => (saveFastTravel.historicoAndares?.[a] ?? 0) >= 10 && a > 1)
-      .sort((a,b) => b-a);
+      .sort((a, b) => b - a);
 
     let html = `
       <div style="max-width:600px; margin:0 auto; text-align:center;">
@@ -830,8 +914,8 @@ function render() {
     `;
 
     andaresDisponiveis.forEach(a => {
-       const sim = simularRunAte(a);
-       html += `
+      const sim = simularRunAte(a);
+      html += `
           <button class="btn-action" id="btn-fast-travel-${a}" style="border-color:#4dabf7;">
             Pular para o Andar ${a}<br>
             <small style="color:#a9e34b;">Simulação: +${sim.xp} XP | +${sim.gold} Ouro</small>
@@ -843,38 +927,38 @@ function render() {
     app.innerHTML = html;
 
     document.getElementById("btn-fast-travel-1")!.onclick = () => {
-       iniciarExploracaoBase();
+      iniciarExploracaoBase();
     };
 
     andaresDisponiveis.forEach(a => {
-       document.getElementById(`btn-fast-travel-${a}`)!.onclick = () => {
-          const sim = simularRunAte(a);
-          jogador.experience += sim.xp;
-          jogador.gold += sim.gold;
-          andarAtual = a;
-          salaAtual = 0;
-          atualizarAndarMax(andarAtual);
-          registrarChegadaAndar(andarAtual);
-          
-          let nivelUp = 0;
-          while (jogador.experience >= jogador.experienceToNextLevel) {
-            jogador.levelUp();
-            nivelUp++;
-          }
-          
-          if (nivelUp > 0) {
-            skillsPendenteDeEscolha = nivelUp;
-            estadoAtual = "LEVEL_UP_SKILL";
-            atualizarLog(`Você pulou para o Andar ${a} e ganhou ${sim.xp} XP / ${sim.gold}G!`, () => {
-              setTimeout(() => escolherNovaSkillLevelUp(), 800);
-            });
-          } else {
-             estadoAtual = "EXPLORACAO";
-             opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
-             atualizarLog(`Você pulou para o Andar ${a} e ganhou ${sim.xp} XP / ${sim.gold}G!`);
-             render();
-          }
-       };
+      document.getElementById(`btn-fast-travel-${a}`)!.onclick = () => {
+        const sim = simularRunAte(a);
+        jogador.experience += sim.xp;
+        jogador.gold += sim.gold;
+        andarAtual = a;
+        salaAtual = 0;
+        atualizarAndarMax(andarAtual);
+        registrarChegadaAndar(andarAtual);
+
+        let nivelUp = 0;
+        while (jogador.experience >= jogador.experienceToNextLevel) {
+          jogador.levelUp();
+          nivelUp++;
+        }
+
+        if (nivelUp > 0) {
+          skillsPendenteDeEscolha = nivelUp;
+          estadoAtual = "LEVEL_UP_SKILL";
+          atualizarLog(`Você pulou para o Andar ${a} e ganhou ${sim.xp} XP / ${sim.gold}G!`, () => {
+            setTimeout(() => escolherNovaSkillLevelUp(), 800);
+          });
+        } else {
+          estadoAtual = "EXPLORACAO";
+          opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+          atualizarLog(`Você pulou para o Andar ${a} e ganhou ${sim.xp} XP / ${sim.gold}G!`);
+          render();
+        }
+      };
     });
     return;
   }
@@ -1034,20 +1118,29 @@ function render() {
       <div class="hud-row">
         <span class="hud-title">${jogador.name} ${jogador.classe ? `[${jogador.classe}]` : ""} - Nv. ${jogador.level}</span>
         <span class="text-yellow">XP: ${jogador.experience}/${jogador.experienceToNextLevel} | Ouro: ${jogador.gold}G | Andar ${andarAtual} (Sala ${salaAtual})</span>
-      </div>
-      
+      </div>`;
+
+  const jogadorVidaPerc = Math.max(0, (jogador.life / jogador.maxLife) * 100);
+  const oldJogadorVidaPerc = (jogador as any)._lastRenderedLife !== undefined ? Math.max(0, ((jogador as any)._lastRenderedLife / jogador.maxLife) * 100) : jogadorVidaPerc;
+  const jogadorTomouDano = (jogador as any)._lastRenderedLife !== undefined && jogador.life < (jogador as any)._lastRenderedLife;
+  (jogador as any)._lastRenderedLife = jogador.life;
+
+  const jHpClass = jogadorTomouDano ? "health-drop" : "";
+  const jHpShake = jogadorTomouDano ? "shake-hit" : "";
+
+  htmlHUD += `
       <div class="hud-row" style="gap: 15px;">
-        <div class="bar-container">
-          <div class="bar-fill bg-red" style="width: ${Math.max(0, (jogador.life / jogador.maxLife) * 100)}%"></div>
-          <div class="bar-text">❤️ ${Math.max(0, Math.floor(jogador.life))}/${jogador.maxLife}</div>
+        <div class="bar-container ${jHpShake}">
+          <div class="bar-fill bg-red ${jHpClass}" style="--old-width: ${oldJogadorVidaPerc}%; --new-width: ${jogadorVidaPerc}%; width: ${jogadorVidaPerc}%"></div>
+          <div class="bar-text">❤️ ${Math.round(Math.max(0, Math.floor(jogador.life)))}/${jogador.maxLife}</div>
         </div>
         <div class="bar-container">
           <div class="bar-fill bg-blue" style="width: ${Math.max(0, (jogador.mana / jogador.maxMana) * 100)}%"></div>
-          <div class="bar-text">💧 ${Math.max(0, Math.floor(jogador.mana))}/${jogador.maxMana}</div>
+          <div class="bar-text">💧 ${Math.round(Math.max(0, Math.floor(jogador.mana)))}/${jogador.maxMana}</div>
         </div>
         <div class="bar-container">
           <div class="bar-fill bg-yellow" style="width: ${Math.max(0, (jogador.energy / jogador.maxEnergy) * 100)}%"></div>
-          <div class="bar-text">⚡ ${Math.max(0, Math.floor(jogador.energy))}/${jogador.maxEnergy}</div>
+          <div class="bar-text">⚡ ${Math.round(Math.max(0, Math.floor(jogador.energy)))}/${jogador.maxEnergy}</div>
         </div>
       </div>
 
@@ -1059,7 +1152,9 @@ function render() {
         <span class="text-cyan">DEF: ${jogador.defense}</span>
       </div>
       <div class="stats-grid" style="margin-top:5px;">
-        <span class="text-gray">Arma: ${jogador.equippedWeapon?.name || "Nenhuma"} (${jogador.danoComArma()} Dano)</span>
+        <span class="text-gray has-tooltip" style="cursor:help;">Arma: ${jogador.equippedWeapon?.name || "Nenhuma"} (${jogador.danoComArma()} Dano)
+          ${jogador.equippedWeapon ? getWeaponTooltip(jogador.equippedWeapon) : ""}
+        </span>
         <span class="text-gray">Crítico: ${(jogador.taxaCritica * 100).toFixed(0)}%</span>
       </div>
       <div class="stats-grid" style="margin-top:4px;">
@@ -1082,12 +1177,19 @@ function render() {
     inimigosAtuais.forEach((ini, idx) => {
       const vidaAtual = Math.max(0, Math.floor(ini.life));
       const porcentagemVida = Math.max(0, (ini.life / ini.maxLife) * 100);
+      const oldPorcentagemVida = (ini as any)._lastRenderedLife !== undefined ? Math.max(0, ((ini as any)._lastRenderedLife / ini.maxLife) * 100) : porcentagemVida;
+      const tomouDano = (ini as any)._lastRenderedLife !== undefined && ini.life < (ini as any)._lastRenderedLife;
+      (ini as any)._lastRenderedLife = ini.life;
+
+      const hpClass = tomouDano ? "health-drop" : "";
+      const hpShake = tomouDano ? "shake-hit" : "";
+
       htmlHUD += `
         <div class="hud-row">
           <span class="text-red">[${idx + 1}] ${ini.name}</span>
         </div>
-        <div class="bar-container" style="margin-bottom: 10px;">
-          <div class="bar-fill bg-red" style="width: ${porcentagemVida}%"></div>
+        <div class="bar-container ${hpShake}" style="margin-bottom: 10px;">
+          <div class="bar-fill bg-red ${hpClass}" style="--old-width: ${oldPorcentagemVida}%; --new-width: ${porcentagemVida}%; width: ${porcentagemVida}%"></div>
           <div class="bar-text">${vidaAtual}/${ini.maxLife}</div>
         </div>
       `;
@@ -1100,12 +1202,19 @@ function render() {
       aliadosAtuais.forEach((aliado, idx) => {
         const vidaAtual = Math.max(0, Math.floor(aliado.life));
         const porcentagemVida = Math.max(0, (aliado.life / aliado.maxLife) * 100);
+        const oldPorcentagemVida = (aliado as any)._lastRenderedLife !== undefined ? Math.max(0, ((aliado as any)._lastRenderedLife / aliado.maxLife) * 100) : porcentagemVida;
+        const tomouDano = (aliado as any)._lastRenderedLife !== undefined && aliado.life < (aliado as any)._lastRenderedLife;
+        (aliado as any)._lastRenderedLife = aliado.life;
+
+        const hpClass = tomouDano ? "health-drop" : "";
+        const hpShake = tomouDano ? "shake-hit" : "";
+
         htmlHUD += `
           <div class="hud-row">
             <span style="color: #9c36b5;">[Aliado] ${aliado.name} (Dano: ${aliado.attackPower})</span>
           </div>
-          <div class="bar-container" style="margin-bottom: 5px;">
-            <div class="bar-fill" style="background-color: #9c36b5; width: ${porcentagemVida}%"></div>
+          <div class="bar-container ${hpShake}" style="margin-bottom: 5px;">
+            <div class="bar-fill ${hpClass}" style="background-color: #9c36b5; --old-width: ${oldPorcentagemVida}%; --new-width: ${porcentagemVida}%; width: ${porcentagemVida}%"></div>
             <div class="bar-text">${vidaAtual}/${aliado.maxLife}</div>
           </div>
         `;
@@ -1146,6 +1255,7 @@ function render() {
 
 // Lógica do Jogo
 function iniciarNovaRun() {
+  resetRunStats();
   jogador = new mainCharacter("Herói", 15, 100, 100, 100, 0, 0, 0, 0, 0);
   const save = lerSave();
   save.armasExtras.forEach(armaName => {
@@ -1161,6 +1271,8 @@ function iniciarNovaRun() {
   furiaPenalidadeAtiva = false;
   furiaSkipouPrimeiroTurno = false;
   primeiroTurnoDoCombate = true;
+  primeiraSalaCombate = true;
+  assassinoCritou = false;
   andarAtual = 1;
   salaAtual = 0;
   estadoAtual = "SELECAO_LOADOUT";
@@ -1197,6 +1309,8 @@ function avancarSala() {
 }
 
 function gerarInimigos() {
+  primeiraSalaCombate = true;
+  assassinoCritou = false;
   inimigosAtuais = [];
   if (salaAtual === 10) {
     playMusic("boss");
@@ -1248,8 +1362,12 @@ function gerarInimigos() {
 
 function menuBatalhaPrincipal() {
   if (jogador.life <= 0) {
-    estadoAtual = "GAME_OVER";
-    opcoesAcao = [{ texto: "Voltar ao Lobby", acao: () => { estadoAtual = "LOBBY"; render(); } }];
+    runStats.resultado = "MORTE";
+    runStats.andarDaMorte = andarAtual;
+    runStats.salaDaMorte = salaAtual;
+    runStats.mortoPor = inimigosAtuais.map(i => i.name).join(", ");
+    estadoAtual = "ESTATISTICAS_RUN";
+    opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
     const goldPerdido = Math.floor(jogador.gold / 2);
     const goldGanho = jogador.gold - goldPerdido;
     adicionarGold(goldGanho);
@@ -1330,6 +1448,7 @@ function menuTrocarArma() {
 
   opcoesAcao = jogador.weaponInventory.map((arma, idx) => ({
     texto: `Equipar ${arma.name} (${arma.damage} Dano)`,
+    descricao: getWeaponTooltip(arma).replace('<div class="btn-tooltip">', '').replace('</div>', ''),
     acao: () => {
       jogador.equippedWeapon = arma;
       opcoesAcao = [];
@@ -1354,7 +1473,10 @@ function menuUsarConsumivel() {
     return {
       texto: `Usar ${item.name}`,
       acao: () => {
+        const hpAntes = jogador.life;
         const buff = item.usar(jogador);
+        const curado = jogador.life - hpAntes;
+        if (curado > 0) runStats.vidaCurada += curado;
         if (buff) jogador.activeBuffs.push(buff);
         jogador.inventory.splice(idx, 1);
 
@@ -1410,7 +1532,7 @@ function atacarInimigo(alvoIdx: number) {
   const temMataGigantes = jogador.skills.some(s => s.nome === "Mata gigantes");
   let bonusMataGigantes = 0;
   if (temMataGigantes && alvo.life > jogador.life) {
-    bonusMataGigantes = Math.min(0.45, ((alvo.life - jogador.life) / 2500) * 0.45);
+    bonusMataGigantes = Math.min(0.45, ((alvo.life - jogador.life) / 500) * 0.45);
     danoBase = Math.floor(danoBase * (1 + bonusMataGigantes));
   }
 
@@ -1432,8 +1554,11 @@ function atacarInimigo(alvoIdx: number) {
 
   // Fúria Descontrolada: crítico garantido neste combate
   const furiaAtivaNow = jogador.activeBuffs.some(b => b.name === "Fúria Descontrolada");
-  const isCrit = furiaAtivaNow || Math.random() < critTotal;
-  const danoFinal = Math.floor(isCrit ? danoBase * 2 : danoBase);
+  const isCrit = furiaAtivaNow || Math.random() < critTotal || (jogador.classe === "Assassino" && primeiraSalaCombate && !assassinoCritou);
+  let danoFinal = Math.floor(isCrit ? danoBase * 2 : danoBase);
+  if (isCrit) {
+    triggerScreenShake = true;
+  }
 
   // Atualiza stack do Raio Negro
   if (temRaioNegro) {
@@ -1445,9 +1570,12 @@ function atacarInimigo(alvoIdx: number) {
   }
 
   alvo.life -= danoFinal;
+  runStats.danoCausado += danoFinal;
+  if (isCrit) runStats.acertosCriticos++;
   playSfx("hit");
-  
+
   const lifesteal = jogador.aplicarRouboDeVida(danoFinal);
+  if (lifesteal > 0) runStats.vidaCurada += lifesteal;
 
   let msg = `Você atacou ${alvo.name} causando ${danoFinal} de dano!`;
   if (lifesteal > 0) msg += ` (Roubou ${lifesteal} vida)`;
@@ -1519,7 +1647,10 @@ function usarHabilidade(idx: number) {
       let totalLS = 0;
       alvosEscolhidos.forEach(a => {
         a.life -= danoPorRajada;
-        totalLS += jogador.aplicarRouboDeVida(danoPorRajada);
+        runStats.danoCausado += danoPorRajada;
+        const lifesteal = jogador.aplicarRouboDeVida(danoPorRajada);
+        totalLS += lifesteal;
+        if (lifesteal > 0) runStats.vidaCurada += lifesteal;
         log += `⚡ Rajada atingiu ${a.name}!\n`;
       });
       log += `Você recuperou ${manaRestaurada} de Mana!`;
@@ -1565,10 +1696,12 @@ function usarHabilidade(idx: number) {
     }
   }
 
-  // Simplificando o alvo da habilidade para o primeiro inimigo vivo por enquanto na web
   // A interface de usar espera console.logs, precisaremos capturar ou ignorar por enquanto
   // e apenas mostrar que a habilidade foi usada.
+  const hpAntes = jogador.life;
   const sucesso = habilidade.usar(jogador, inimigosAtuais, 0);
+  const curado = jogador.life - hpAntes;
+  if (curado > 0) runStats.vidaCurada += curado;
 
   opcoesAcao = [];
   if (sucesso) {
@@ -1589,8 +1722,9 @@ function usarHabilidade(idx: number) {
 function tentarFugir() {
   opcoesAcao = [];
   if (Math.random() < 0.6) {
-    estadoAtual = "GAME_OVER";
-    opcoesAcao = [{ texto: "Voltar ao Lobby", acao: () => { estadoAtual = "LOBBY"; render(); } }];
+    runStats.resultado = "FUGA";
+    estadoAtual = "ESTATISTICAS_RUN";
+    opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
     adicionarGold(jogador.gold);
     jogador.removerEquipamentos();
     atualizarLog(`Você fugiu com sucesso! Extraiu ${jogador.gold}G e todos os seus itens para o Lobby.`);
@@ -1689,7 +1823,10 @@ function turnoInimigo() {
       aliadosAtuais.forEach(aliado => {
         const alvo = inimigosAtuais[Math.floor(Math.random() * inimigosAtuais.length)]!;
         alvo.life -= aliado.attackPower;
-        totalLSAliados += jogador.aplicarRouboDeVida(aliado.attackPower);
+        runStats.danoCausado += aliado.attackPower;
+        const lifesteal = jogador.aplicarRouboDeVida(aliado.attackPower);
+        totalLSAliados += lifesteal;
+        if (lifesteal > 0) runStats.vidaCurada += lifesteal;
         logAliados += `👻 Seu ${aliado.name} ataca ${alvo.name} por ${aliado.attackPower} dano!\n`;
       });
       if (totalLSAliados > 0) logAliados += `(Você roubou ${totalLSAliados} vida)\n`;
@@ -1720,7 +1857,9 @@ function faseBardo() {
     const alvoReal = inimigosAtuais.length > 1 ? inimigosAtuais[(alvoIdx + 1) % inimigosAtuais.length]! : atacante;
     const dano = atacante.attackPower;
     alvoReal.life -= dano;
+    runStats.danoCausado += dano;
     const lifesteal = jogador.aplicarRouboDeVida(dano);
+    if (lifesteal > 0) runStats.vidaCurada += lifesteal;
 
     let encantoLog = `🎵 Encanto do Bardo! ${atacante.name} enlouquece e ataca ${alvoReal.name} por ${dano} de dano!`;
     if (lifesteal > 0) encantoLog += ` (Você roubou ${lifesteal} vida)`;
@@ -1747,13 +1886,23 @@ function faseAtaqueInimigos() {
   const temVelocidade = jogador.activeBuffs.some(b => b.name === "Velocidade");
   setParryWindowBonus(temVelocidade ? 20 : 0); // +20% de janela quando ativo
 
+  let critou = false;
   inimigosAtuais.forEach(ini => {
     // Nova fórmula de redução (logarítmica): máx teórico nunca chega a 100%
     const reducao = jogador.defense / (jogador.defense + 100);
     let dano = Math.floor(ini.attackPower * (1 - reducao));
+
+    // Inimigos têm 5% de chance de critar (1.5x dano)
+    if (Math.random() < 0.05) {
+      dano = Math.floor(dano * 1.5);
+      critou = true;
+    }
+
     if (dano < 1) dano = 1;
     totalDano += dano;
   });
+
+  if (critou) triggerScreenShake = true;
 
   opcoesAcao = [];
   render(); // Limpa os botoes antes de mostrar o parry
@@ -1761,19 +1910,21 @@ function faseAtaqueInimigos() {
   showParryBar(
     () => {
       // Parry bem sucedido: sem dano
+      runStats.parryAcertos++;
       let parryMsg = `⚔️ PARRY PERFEITO! Você bloqueou o ataque dos inimigos!`;
-      
+
       if (parryStreak === 10 && !temFlag('marco_10_parrys')) {
         desbloquearFlag('marco_10_parrys');
         parryMsg += `<br><br><span style="color:#ffd700">🏆 MARCO DESBLOQUEADO: Mestre do Parry! (+3 Destreza Permanente)</span>`;
       }
-      
+
       atualizarLog(parryMsg, () => {
         setTimeout(() => menuBatalhaPrincipal(), 500);
       });
     },
     () => {
       // Parry falhou: verifica Evasivo (passiva de esquiva)
+      runStats.parryErros++;
       const temEvasivo = jogador.skills.some(s => s.nome === "Evasivo");
       if (temEvasivo) {
         // Chance de esquiva: base 5% + (DEX * 1.75%), teto de 40%
@@ -1783,9 +1934,10 @@ function faseAtaqueInimigos() {
             jogador.activeBuffs.push({
               name: "Prontidão",
               duration: 1, // Durará até o próximo ataque ou turno expirar
-              onExpire: () => {}
+              onExpire: () => { }
             });
           }
+          runStats.esquivas++;
           atualizarLog(`💨 Evasivo! Você desviou do ataque por um fio! (${(chanceEsquiva * 100).toFixed(0)}% esquiva)`, () => {
             setTimeout(() => menuBatalhaPrincipal(), 500);
           });
@@ -1798,6 +1950,7 @@ function faseAtaqueInimigos() {
         danoFinalAoJogador = Math.floor(danoFinalAoJogador * 0.90);
       }
       jogador.life -= danoFinalAoJogador;
+      runStats.danoRecebido += danoFinalAoJogador;
       const bastMsg = jogador._armorPassivaAtiva === "Bastião" ? " [Bastião: -10%]" : "";
       atualizarLog(`Os inimigos atacam e causam ${danoFinalAoJogador} de dano!${bastMsg}`, () => {
         setTimeout(() => menuBatalhaPrincipal(), 500);
@@ -1866,10 +2019,12 @@ function vencerBatalha() {
         setTimeout(() => escolherNovaSkillLevelUp(), 800);
       });
     } else {
-      estadoAtual = "EXPLORACAO";
       if (andarAtual >= 10) {
-        opcoesAcao = [{ texto: "Voltar para o Lobby", acao: () => { estadoAtual = "LOBBY"; render(); } }];
+        runStats.resultado = "VITÓRIA";
+        estadoAtual = "ESTATISTICAS_RUN";
+        opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
       } else {
+        estadoAtual = "EXPLORACAO";
         opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
       }
       atualizarLog(msgBau);
@@ -1922,7 +2077,7 @@ function vencerBatalha() {
 }
 
 function escolherNovaSkillLevelUp() {
-  const opcoes = sortearTresHabilidades(jogador.level, jogador.skills);
+  const opcoes = sortearTresHabilidades(jogador.level, jogador.skills, jogador.classe);
   if (opcoes.length === 0) {
     atualizarLog("Você já tem todas as habilidades disponíveis!");
     skillsPendenteDeEscolha = 0;
@@ -1950,11 +2105,13 @@ function escolherNovaSkillLevelUp() {
 function irParaAlocacaoDeAtributo() {
   estadoAtual = "ALOCAR_ATRIBUTO";
   if (jogador.pontosDeAtributo <= 0) {
-    estadoAtual = "EXPLORACAO";
     if (andarAtual >= 10 && salaAtual === 10) {
-      opcoesAcao = [{ texto: "Voltar para o Lobby", acao: () => { estadoAtual = "LOBBY"; render(); } }];
+      runStats.resultado = "VITÓRIA";
+      estadoAtual = "ESTATISTICAS_RUN";
+      opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
       atualizarLog("🎉 EXPEDIÇÃO CONCLUÍDA! Você finalizou o Andar 10 e sua progressão foi salva.");
     } else {
+      estadoAtual = "EXPLORACAO";
       opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
       atualizarLog("Você subiu de nível!");
     }
