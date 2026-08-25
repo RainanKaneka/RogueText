@@ -371,3 +371,51 @@ body {
 .shake-screen {
   animation: shakeScreen 0.3s ease-out forwards;
 }
+
+/* Event Screens */
+.event-screen-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  background-color: rgba(10, 10, 15, 0.7);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 20px;
+}
+
+.event-level-up-icon {
+  width: 120px;
+  height: 120px;
+  image-rendering: pixelated;
+  margin-bottom: 20px;
+  animation: floatIcon 3s ease-in-out infinite, pulseGlow 2s ease-in-out infinite;
+}
+
+@keyframes floatIcon {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes pulseGlow {
+  0% { filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5)); }
+  50% { filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.9)); }
+  100% { filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5)); }
+}
+
+.event-title {
+  font-family: 'Pixelify Sans', cursive;
+  font-size: 2.2rem;
+  color: var(--accent-color);
+  margin-bottom: 10px;
+}
+
+.event-subtitle {
+  font-size: 1.1rem;
+  color: #bbb;
+  margin-bottom: 25px;
+}
+

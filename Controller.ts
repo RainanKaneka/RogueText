@@ -76,7 +76,7 @@ const bossesPorAndar: { [key: number]: string[] } = {
 };
 
 // Estado da Aplicação
-type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS" | "FAST_TRAVEL" | "ESTATISTICAS_RUN" | "CONFIRMAR_VENDA";
+type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS" | "FAST_TRAVEL" | "ESTATISTICAS_RUN" | "CONFIRMAR_VENDA" | "EVENTO_BOSS" | "EVENTO_RECOMPENSA";
 
 let estadoAtual: GameState = "LOBBY";
 let jogador: mainCharacter;
@@ -1105,22 +1105,26 @@ function render() {
   }
 
   // HUD (Exploração, Batalha, Level Up)
-  let htmlHUD = `
-    <div class="hud-container">
+  let htmlHUD = "";
+  const isEventScreen = ["LEVEL_UP_SKILL", "ALOCAR_ATRIBUTO", "EVENTO_BOSS", "EVENTO_RECOMPENSA"].includes(estadoAtual);
+
+  if (!isEventScreen) {
+    htmlHUD += `
+      <div class="hud-container">
       <div class="hud-row">
         <span class="hud-title">${jogador.name} ${jogador.classe ? `[${jogador.classe}]` : ""} - Nv. ${jogador.level}</span>
         <span class="text-yellow">XP: ${jogador.experience}/${jogador.experienceToNextLevel} | Ouro: ${jogador.gold}G | Andar ${andarAtual} (Sala ${salaAtual})</span>
       </div>`;
 
-  const jogadorVidaPerc = Math.max(0, (jogador.life / jogador.maxLife) * 100);
-  const oldJogadorVidaPerc = (jogador as any)._lastRenderedLife !== undefined ? Math.max(0, ((jogador as any)._lastRenderedLife / jogador.maxLife) * 100) : jogadorVidaPerc;
-  const jogadorTomouDano = (jogador as any)._lastRenderedLife !== undefined && jogador.life < (jogador as any)._lastRenderedLife;
-  (jogador as any)._lastRenderedLife = jogador.life;
+    const jogadorVidaPerc = Math.max(0, (jogador.life / jogador.maxLife) * 100);
+    const oldJogadorVidaPerc = (jogador as any)._lastRenderedLife !== undefined ? Math.max(0, ((jogador as any)._lastRenderedLife / jogador.maxLife) * 100) : jogadorVidaPerc;
+    const jogadorTomouDano = (jogador as any)._lastRenderedLife !== undefined && jogador.life < (jogador as any)._lastRenderedLife;
+    (jogador as any)._lastRenderedLife = jogador.life;
 
-  const jHpClass = jogadorTomouDano ? "health-drop" : "";
-  const jHpShake = jogadorTomouDano ? "shake-hit" : "";
+    const jHpClass = jogadorTomouDano ? "health-drop" : "";
+    const jHpShake = jogadorTomouDano ? "shake-hit" : "";
 
-  htmlHUD += `
+    htmlHUD += `
       <div class="hud-row" style="gap: 15px;">
         <div class="bar-container ${jHpShake}">
           <div class="bar-fill bg-red ${jHpClass}" style="--old-width: ${oldJogadorVidaPerc}%; --new-width: ${jogadorVidaPerc}%; width: ${jogadorVidaPerc}%"></div>
@@ -1214,9 +1218,38 @@ function render() {
       htmlHUD += `</div>`;
     }
   }
+}
 
-  // Log de Ação
-  htmlHUD += `<div class="action-log">${logMensagem}</div>`;
+  // Se for tela de evento, renderiza o Event Screen
+  if (isEventScreen) {
+    let tituloEvento = "";
+    let subtituloEvento = "";
+    let exibeIcone = false;
+
+    if (estadoAtual === "LEVEL_UP_SKILL" || estadoAtual === "ALOCAR_ATRIBUTO") {
+      tituloEvento = "Level Up!";
+      subtituloEvento = "Você ficou mais forte.";
+      exibeIcone = true;
+    } else if (estadoAtual === "EVENTO_BOSS") {
+      tituloEvento = "Cuidado!";
+      subtituloEvento = "Uma presença esmagadora se aproxima...";
+    } else if (estadoAtual === "EVENTO_RECOMPENSA") {
+      tituloEvento = "Recompensa!";
+      subtituloEvento = "O Boss deixou algo para trás.";
+    }
+
+    htmlHUD += `
+      <div class="event-screen-container">
+        ${exibeIcone ? `<img src="sprites/Rogue-Text-LevelUp-Icon.png" class="event-level-up-icon" alt="Level Up">` : ""}
+        <div class="event-title">${tituloEvento}</div>
+        <div class="event-subtitle">${subtituloEvento}</div>
+        <div class="action-log" style="background: transparent; border: none; font-size: 1.1rem; padding: 0;">${logMensagem}</div>
+      </div>
+    `;
+  } else {
+    // Log de Ação (Apenas se não for evento)
+    htmlHUD += `<div class="action-log">${logMensagem}</div>`;
+  }
 
   // Botões de Ação
   htmlHUD += `<div class="action-buttons">`;
@@ -1336,8 +1369,25 @@ function gerarInimigos() {
       }
     }
   }
-  estadoAtual = "BATALHA";
-
+  
+    if (salaAtual === 10) {
+      estadoAtual = "EVENTO_BOSS";
+      logMensagem = `O ar fica pesado... O Boss ${inimigosAtuais[0]?.name} apareceu!`;
+      opcoesAcao = [
+        {
+          texto: "Enfrentar",
+          acao: () => {
+            estadoAtual = "BATALHA";
+            atualizarLog(`O combate contra ${inimigosAtuais[0]?.name} começou!`);
+            menuBatalhaPrincipal();
+          }
+        }
+      ];
+    } else {
+      estadoAtual = "BATALHA";
+      menuBatalhaPrincipal();
+    }
+  
   if (furiaPenalidade) {
     furiaPenalidadeAtiva = true;
     furiaPenalidade = false;
@@ -2004,24 +2054,34 @@ function vencerBatalha() {
       else msgBau += `🧪 Consumível: ${recompensa.item.name}`;
     }
 
-    if (nivelUp > 0) {
-      skillsPendenteDeEscolha = nivelUp;
-      estadoAtual = "LEVEL_UP_SKILL";
-      atualizarLog(msgBau, () => {
-        setTimeout(() => escolherNovaSkillLevelUp(), 800);
-      });
-    } else {
-      if (andarAtual >= 10) {
-        runStats.resultado = "VITÓRIA";
-        estadoAtual = "ESTATISTICAS_RUN";
-        opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
-      } else {
-        estadoAtual = "EXPLORACAO";
-        opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
-      }
-      atualizarLog(msgBau);
-    }
-    return;
+      estadoAtual = "EVENTO_RECOMPENSA";
+      logMensagem = msgBau;
+      opcoesAcao = [
+        {
+          texto: "Continuar",
+          acao: () => {
+            if (nivelUp > 0) {
+              skillsPendenteDeEscolha = nivelUp;
+              estadoAtual = "LEVEL_UP_SKILL";
+              atualizarLog("Você subiu de nível!", () => {
+                setTimeout(() => escolherNovaSkillLevelUp(), 800);
+              });
+            } else {
+              if (andarAtual >= 10) {
+                runStats.resultado = "VITÓRIA";
+                estadoAtual = "ESTATISTICAS_RUN";
+                opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
+              } else {
+                estadoAtual = "EXPLORACAO";
+                opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+              }
+              render();
+            }
+          }
+        }
+      ];
+      render();
+      return;
   }
 
   // SALA COMUM (1–9): chance de drop aleatório
@@ -2031,42 +2091,70 @@ function vencerBatalha() {
   const roll = Math.random();
 
   let msgSala = `Batalha vencida! +${xpBonusSala} XP e +${goldSala}G.`;
+  let dropOcorreu = false;
 
-  if (roll < chanceArma) {
-    // Drop de arma: raridade escala com o andar
-    const raridadesPossiveis: Array<"COMUM" | "RARA" | "EPICA"> =
-      andarAtual <= 3 ? ["COMUM"] :
-        andarAtual <= 6 ? ["COMUM", "RARA"] :
-          ["COMUM", "RARA", "EPICA"];
-    const raridadeEscolhida = raridadesPossiveis[Math.floor(Math.random() * raridadesPossiveis.length)]!;
-    const armasFiltradas = Object.values(listaArmas).filter(
-      a => a.raridade === raridadeEscolhida && a.name !== "Espada Quebrada"
-    );
-    if (armasFiltradas.length > 0) {
-      const armaDropada = armasFiltradas[Math.floor(Math.random() * armasFiltradas.length)]!;
-      jogador.weaponInventory.push(armaDropada);
-      msgSala += `\n⚔️ Item encontrado: ${armaDropada.name} (${armaDropada.raridade})!`;
+
+    if (roll < chanceArma) {
+      // Drop de arma: raridade escala com o andar
+      const raridadesPossiveis: Array<"COMUM" | "RARA" | "EPICA"> =
+        andarAtual <= 3 ? ["COMUM"] :
+          andarAtual <= 6 ? ["COMUM", "RARA"] :
+            ["COMUM", "RARA", "EPICA"];
+      const raridadeEscolhida = raridadesPossiveis[Math.floor(Math.random() * raridadesPossiveis.length)]!;
+      const armasFiltradas = Object.values(listaArmas).filter(
+        a => a.raridade === raridadeEscolhida && a.name !== "Espada Quebrada"
+      );
+      if (armasFiltradas.length > 0) {
+        const armaDropada = armasFiltradas[Math.floor(Math.random() * armasFiltradas.length)]!;
+        jogador.weaponInventory.push(armaDropada);
+        msgSala += `\n🗡️ Item encontrado: ${armaDropada.name} (${armaDropada.raridade})!`;
+        dropOcorreu = true;
+      }
+    } else if (roll < chanceArma + chanceConsumivel) {
+      // Drop de consumível
+      const consumiveis = Object.values(listaConsumiveis);
+      const consDropado = consumiveis[Math.floor(Math.random() * consumiveis.length)]!;
+      jogador.inventory.push(consDropado.name);
+      msgSala += `\n🧪 Consumível encontrado: ${consDropado.name}!`;
+      dropOcorreu = true;
     }
-  } else if (roll < chanceArma + chanceConsumivel) {
-    // Drop de consumível
-    const consumiveis = Object.values(listaConsumiveis);
-    const consDropado = consumiveis[Math.floor(Math.random() * consumiveis.length)]!;
-    jogador.inventory.push(consDropado.name);
-    msgSala += `\n🧪 Consumível encontrado: ${consDropado.name}!`;
+  
+    if (dropOcorreu) {
+      estadoAtual = "EVENTO_RECOMPENSA";
+      logMensagem = msgSala;
+      opcoesAcao = [
+        {
+          texto: "Continuar",
+          acao: () => {
+            if (nivelUp > 0) {
+              skillsPendenteDeEscolha = nivelUp;
+              estadoAtual = "LEVEL_UP_SKILL";
+              atualizarLog("Você subiu de nível!", () => {
+                setTimeout(() => escolherNovaSkillLevelUp(), 800);
+              });
+            } else {
+              estadoAtual = "EXPLORACAO";
+              opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+              atualizarLog("A sala está limpa. O que fazer agora?");
+              render();
+            }
+          }
+        }
+      ];
+    } else {
+      if (nivelUp > 0) {
+        skillsPendenteDeEscolha = nivelUp;
+        estadoAtual = "LEVEL_UP_SKILL";
+        atualizarLog(msgSala, () => {
+          setTimeout(() => escolherNovaSkillLevelUp(), 800);
+        });
+      } else {
+        estadoAtual = "EXPLORACAO";
+        opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+        atualizarLog(msgSala);
+      }
+    }
   }
-
-  if (nivelUp > 0) {
-    skillsPendenteDeEscolha = nivelUp;
-    estadoAtual = "LEVEL_UP_SKILL";
-    atualizarLog(msgSala, () => {
-      setTimeout(() => escolherNovaSkillLevelUp(), 800);
-    });
-  } else {
-    estadoAtual = "EXPLORACAO";
-    opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
-    atualizarLog(msgSala);
-  }
-}
 
 function escolherNovaSkillLevelUp() {
   const opcoes = sortearTresHabilidades(jogador.level, jogador.skills, jogador.classe);
