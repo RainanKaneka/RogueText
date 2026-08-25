@@ -2141,6 +2141,7 @@ function vencerBatalha() {
           }
         }
       ];
+      render();
     } else {
       if (nivelUp > 0) {
         skillsPendenteDeEscolha = nivelUp;
