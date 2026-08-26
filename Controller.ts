@@ -241,7 +241,7 @@ function render() {
       runStats.resultado === "FUGA" ? "FUGA BEM SUCEDIDA" : "VOCÊ MORREU";
 
     let color = runStats.resultado === "VITÓRIA" ? "#ffd700" :
-      runStats.resultado === "FUGA" ? "#4dabf7" : "#fa5252";
+      runStats.resultado === "FUGA" ? "#ffffffff" : "#fa5252";
 
     let causaMorteHTML = "";
     if (runStats.resultado === "MORTE") {
