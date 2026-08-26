@@ -1240,7 +1240,7 @@ function render() {
 
     htmlHUD += `
       <div class="event-screen-container">
-        ${exibeIcone ? `<img src="sprites/Rogue-Text-LevelUp-Icon.png" class="event-level-up-icon" alt="Level Up">` : ""}
+        ${exibeIcone ? `<img src="sprites/Rogue-Text-LevelUp-Icon.gif" class="event-level-up-icon" alt="Level Up">` : ""}
         <div class="event-title">${tituloEvento}</div>
         <div class="event-subtitle">${subtituloEvento}</div>
         <div class="action-log" style="background: transparent; border: none; font-size: 1.1rem; padding: 0;">${logMensagem}</div>
@@ -2245,7 +2245,7 @@ function initSettings() {
 
 async function preloadAssets() {
   const assetsToLoad = [
-    "/sprites/Rogue-Text-LevelUp-Icon.png",
+    "/sprites/Rogue-Text-LevelUp-Icon.gif",
     "/ost/xDeviruchi - Decisive Battle.wav",
     "/ost/xDeviruchi - Mysterious Dungeon.wav",
     "/ost/xDeviruchi - Title Theme .wav",
