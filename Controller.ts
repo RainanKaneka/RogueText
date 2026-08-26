@@ -2278,7 +2278,7 @@ async function preloadAssets() {
   const loadAsset = (url: string) => {
     return fetch(url)
       .then(res => {
-        if (!res.ok) throw new Error(\`Failed to load \${url}\`);
+        if (!res.ok) throw new Error(`Failed to load ${url}`);
         return res.blob();
       })
       .then(() => updateProgress())
