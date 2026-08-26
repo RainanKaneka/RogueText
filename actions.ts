@@ -54,10 +54,17 @@ export class GolpeForte implements Habilidade {
     jogador.energy -= this.custoEnergia;
     const danoBase = jogador.danoComArma() * 1.5;
     const bonusStr = calcBonusAtributo(jogador.strength, 0.15);
-    const dano = Math.floor(danoBase + bonusStr);
+    let dano = Math.floor(danoBase + bonusStr);
+    
+    let isCrit = false;
+    if (Math.random() <= jogador.criticalRate) {
+      dano = Math.floor(dano * jogador.criticalDamage);
+      isCrit = true;
+    }
+
     inimigos[alvo]!.life -= dano;
     const lifesteal = jogador.aplicarRouboDeVida(dano);
-    let logMsg = `💪 Você acerta um GOLPE FORTE no ${inimigos[alvo]!.name} causando ${dano} de dano! (Bônus STR: +${bonusStr})`;
+    let logMsg = `💪 Você acerta um GOLPE FORTE ${isCrit ? "CRÍTICO " : ""}no ${inimigos[alvo]!.name} causando ${dano} de dano! (Bônus STR: +${bonusStr})`;
     if (lifesteal > 0) logMsg += ` (Roubou ${lifesteal} vida)`;
     console.log(chalk.yellowBright(logMsg));
     return true;

@@ -1737,27 +1737,53 @@ function usarHabilidade(idx: number) {
     }
   }
 
-  // A interface de usar espera console.logs, precisaremos capturar ou ignorar por enquanto
-  // e apenas mostrar que a habilidade foi usada.
-  const hpAntes = jogador.life;
-  const sucesso = habilidade.usar(jogador, inimigosAtuais, 0);
-  const curado = jogador.life - hpAntes;
-  if (curado > 0) runStats.vidaCurada += curado;
+  const executar = (alvo: number) => {
+    const hpAntes = jogador.life;
+    const sucesso = habilidade.usar(jogador, inimigosAtuais, alvo);
+    const curado = jogador.life - hpAntes;
+    if (curado > 0) runStats.vidaCurada += curado;
 
-  opcoesAcao = [];
-  if (sucesso) {
-    atualizarLog(`Você usou ${habilidade.nome}!`, () => {
-      setTimeout(() => {
-        turnoInimigo();
-      }, 500);
-    });
-  } else {
-    atualizarLog(`Falha ao usar ${habilidade.nome}. (Falta recursos)`, () => {
-      setTimeout(() => {
-        menuBatalhaPrincipal();
-      }, 500);
-    });
+    opcoesAcao = [];
+    if (sucesso) {
+      atualizarLog(`Você usou ${habilidade.nome}!`, () => {
+        setTimeout(() => {
+          turnoInimigo();
+        }, 500);
+      });
+    } else {
+      atualizarLog(`Falha ao usar ${habilidade.nome}. (Falta recursos)`, () => {
+        setTimeout(() => {
+          menuBatalhaPrincipal();
+        }, 500);
+      });
+    }
+  };
+
+  const habilidadesAlvoUnico = ["Golpe Forte", "Drenar Vida", "Cortes Fantasma"];
+  
+  if (habilidadesAlvoUnico.includes(habilidade.nome)) {
+    const vivos = inimigosAtuais.filter(i => i.life > 0);
+    if (vivos.length > 1) {
+      opcoesAcao = vivos.map((ini) => {
+        const indexReal = inimigosAtuais.indexOf(ini);
+        return {
+          texto: `Alvo: ${ini.name}`,
+          acao: () => executar(indexReal)
+        };
+      });
+      opcoesAcao.push({ texto: "Voltar", acao: () => menuHabilidades() });
+      atualizarLog(`Selecione o alvo para ${habilidade.nome}:`);
+      render();
+      return;
+    } else {
+      const indexUnico = inimigosAtuais.findIndex(i => i.life > 0);
+      executar(indexUnico !== -1 ? indexUnico : 0);
+      return;
+    }
   }
+
+  // Skills em área ou self-buff (passa 0 como alvo default)
+  executar(0);
 }
 
 function tentarFugir() {
