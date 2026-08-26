@@ -237,7 +237,7 @@ body {
   z-index: 100;
   margin-top: 8px;
   text-align: center;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.8);
   pointer-events: none;
   transition: opacity 0.2s ease, visibility 0.2s ease;
   transition-delay: 0.05s;
@@ -326,27 +326,65 @@ body {
   font-size: 0.9rem;
   color: #aaa;
 }
+
 @keyframes healthBarDrop {
-  from { width: var(--old-width); }
-  to { width: var(--new-width); }
+  from {
+    width: var(--old-width);
+  }
+
+  to {
+    width: var(--new-width);
+  }
 }
 
 @keyframes shakeHit {
-  0% { transform: translate(2px, 1px) rotate(0deg); }
-  10% { transform: translate(-1px, -2px) rotate(-1deg); }
-  20% { transform: translate(-3px, 0px) rotate(1deg); }
-  30% { transform: translate(2px, 2px) rotate(0deg); }
-  40% { transform: translate(1px, -1px) rotate(1deg); }
-  50% { transform: translate(-1px, 2px) rotate(-1deg); }
-  60% { transform: translate(-3px, 1px) rotate(0deg); }
-  70% { transform: translate(2px, 1px) rotate(-1deg); }
-  80% { transform: translate(-1px, -1px) rotate(1deg); }
-  90% { transform: translate(2px, 2px) rotate(0deg); }
-  100% { transform: translate(0, 0) rotate(0deg); }
+  0% {
+    transform: translate(2px, 1px) rotate(0deg);
+  }
+
+  10% {
+    transform: translate(-1px, -2px) rotate(-1deg);
+  }
+
+  20% {
+    transform: translate(-3px, 0px) rotate(1deg);
+  }
+
+  30% {
+    transform: translate(2px, 2px) rotate(0deg);
+  }
+
+  40% {
+    transform: translate(1px, -1px) rotate(1deg);
+  }
+
+  50% {
+    transform: translate(-1px, 2px) rotate(-1deg);
+  }
+
+  60% {
+    transform: translate(-3px, 1px) rotate(0deg);
+  }
+
+  70% {
+    transform: translate(2px, 1px) rotate(-1deg);
+  }
+
+  80% {
+    transform: translate(-1px, -1px) rotate(1deg);
+  }
+
+  90% {
+    transform: translate(2px, 2px) rotate(0deg);
+  }
+
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
 }
 
 .health-drop {
-  
+
   animation: healthBarDrop 0.4s ease-out forwards;
 }
 
@@ -355,17 +393,49 @@ body {
 }
 
 @keyframes shakeScreen {
-  0% { transform: translate(3px, 2px) rotate(0deg); }
-  10% { transform: translate(-2px, -3px) rotate(-1deg); }
-  20% { transform: translate(-4px, 0px) rotate(1deg); }
-  30% { transform: translate(3px, 3px) rotate(0deg); }
-  40% { transform: translate(2px, -2px) rotate(1deg); }
-  50% { transform: translate(-2px, 3px) rotate(-1deg); }
-  60% { transform: translate(-4px, 1px) rotate(0deg); }
-  70% { transform: translate(3px, 2px) rotate(-1deg); }
-  80% { transform: translate(-2px, -2px) rotate(1deg); }
-  90% { transform: translate(2px, 3px) rotate(0deg); }
-  100% { transform: translate(0, 0) rotate(0deg); }
+  0% {
+    transform: translate(3px, 2px) rotate(0deg);
+  }
+
+  10% {
+    transform: translate(-2px, -3px) rotate(-1deg);
+  }
+
+  20% {
+    transform: translate(-4px, 0px) rotate(1deg);
+  }
+
+  30% {
+    transform: translate(3px, 3px) rotate(0deg);
+  }
+
+  40% {
+    transform: translate(2px, -2px) rotate(1deg);
+  }
+
+  50% {
+    transform: translate(-2px, 3px) rotate(-1deg);
+  }
+
+  60% {
+    transform: translate(-4px, 1px) rotate(0deg);
+  }
+
+  70% {
+    transform: translate(3px, 2px) rotate(-1deg);
+  }
+
+  80% {
+    transform: translate(-2px, -2px) rotate(1deg);
+  }
+
+  90% {
+    transform: translate(2px, 3px) rotate(0deg);
+  }
+
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
 }
 
 .shake-screen {
@@ -380,6 +450,7 @@ body {
   justify-content: center;
   text-align: center;
   padding: 40px 20px;
+  width: 600px;
   background-color: rgba(10, 10, 15, 0.7);
   border-radius: 12px;
   border: 1px solid var(--border-color);
@@ -395,15 +466,31 @@ body {
 }
 
 @keyframes floatIcon {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
 }
 
 @keyframes pulseGlow {
-  0% { filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5)); }
-  50% { filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.9)); }
-  100% { filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5)); }
+  0% {
+    filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5));
+  }
+
+  50% {
+    filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.9));
+  }
+
+  100% {
+    filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5));
+  }
 }
 
 .event-title {
@@ -470,7 +557,8 @@ body {
 #progress-bar-fill {
   width: 0%;
   height: 100%;
-  background-color: #fff; /* Barra branca como solicitado */
+  background-color: #fff;
+  /* Barra branca como solicitado */
   transition: width 0.1s linear;
 }
 

@@ -1220,19 +1220,19 @@ function render() {
     }
   }
 
-  // Se for tela de evento, renderiza o Event Screen
   if (isEventScreen) {
     let tituloEvento = "";
     let subtituloEvento = "";
-    let exibeIcone = false;
+    let iconeEvento = "";
 
     if (estadoAtual === "LEVEL_UP_SKILL" || estadoAtual === "ALOCAR_ATRIBUTO") {
       tituloEvento = "Level Up!";
       subtituloEvento = "Você ficou mais forte.";
-      exibeIcone = true;
+      iconeEvento = "sprites/Rogue-Text-LevelUp-Icon.gif";
     } else if (estadoAtual === "EVENTO_BOSS") {
       tituloEvento = "Cuidado!";
       subtituloEvento = "Uma presença esmagadora se aproxima...";
+      iconeEvento = "sprites/boss-sprite.png";
     } else if (estadoAtual === "EVENTO_RECOMPENSA") {
       tituloEvento = "Recompensa!";
       subtituloEvento = "Você encontrou algo interessante no fim da sala.";
@@ -1240,7 +1240,7 @@ function render() {
 
     htmlHUD += `
       <div class="event-screen-container">
-        ${exibeIcone ? `<img src="sprites/Rogue-Text-LevelUp-Icon.gif" class="event-level-up-icon" alt="Level Up">` : ""}
+        ${iconeEvento ? `<img src="${iconeEvento}" class="event-level-up-icon" alt="Event Icon">` : ""}
         <div class="event-title">${tituloEvento}</div>
         <div class="event-subtitle">${subtituloEvento}</div>
         <div class="action-log" style="background: transparent; border: none; font-size: 1.1rem; padding: 0;">${logMensagem}</div>
@@ -2246,6 +2246,7 @@ function initSettings() {
 async function preloadAssets() {
   const assetsToLoad = [
     "/sprites/Rogue-Text-LevelUp-Icon.gif",
+    "/sprites/boss-sprite.png",
     "/ost/xDeviruchi - Decisive Battle.wav",
     "/ost/xDeviruchi - Mysterious Dungeon.wav",
     "/ost/xDeviruchi - Title Theme .wav",
