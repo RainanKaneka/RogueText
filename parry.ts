@@ -39,7 +39,7 @@ export function showParryBar(onSuccess: () => void, onFail: () => void): void {
 
     overlay.innerHTML = `
       <div id="parry-container">
-        <div id="parry-label">⚔️ PARRY! Pressione <kbd>Espaço</kbd></div>
+        <div id="parry-label"><img src="sprites/weapon-icon.png" style="width:44px; height:44px; vertical-align:-12px;" alt="⚔️"> PARRY! Pressione <kbd>Espaço</kbd></div>
         <div id="parry-bar">
           <div id="parry-window" style="left: ${windowPos}%; width: ${windowSize}%;"></div>
           <div id="parry-cursor"></div>

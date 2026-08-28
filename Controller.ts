@@ -1,12 +1,13 @@
 import { mainCharacter } from "./mainCharacter";
 import { enemy, battleEnemies } from "./enemies";
-import { listaConsumiveis, listaArmas, listaArmaduras, listaAcessorios, abrirBau, bauDoAndar } from "./artefacts";
+import { listaConsumiveis, listaArmas, listaArmaduras, listaAcessorios, abrirBau, bauDoAndar, listaBaus } from "./artefacts";
 import { sortearTresHabilidades } from "./actions";
 import { getClassesDisponiveis, getClassesBloqueadas, aplicarClasse } from "./classes";
 import { lerSave, salvarSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras, desbloquearFlag, adicionarDrop, lerDrops, salvarLoadout, lerLoadout, removerItemExtra, consumirDrops, adicionarArmaduraExtra, adicionarAcessorioExtra, temFlag, registrarChegadaAndar, registrarExpedicaoConcluida } from "./saveData";
 import { rolarDrops } from "./drops.js";
 import { initMusic, playMusic, playSfx, updateHeartbeat, setMusicVolume, setSfxVolume, musicVolume, sfxVolume } from "./music.js";
 import { showParryBar, setParryWindowBonus, parryStreak } from "./parry.js";
+import chalk from "chalk";
 
 // Dados Globais
 function getWeaponTooltip(arma: any): string {
@@ -76,11 +77,12 @@ const bossesPorAndar: { [key: number]: string[] } = {
 };
 
 // Estado da Aplicação
-type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS" | "FAST_TRAVEL" | "ESTATISTICAS_RUN" | "CONFIRMAR_VENDA" | "EVENTO_BOSS" | "EVENTO_RECOMPENSA";
+type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS" | "FAST_TRAVEL" | "ESTATISTICAS_RUN" | "CONFIRMAR_VENDA" | "EVENTO_BOSS" | "EVENTO_RECOMPENSA" | "ESCOLHA_SALA" | "EVENTO_FOGUEIRA" | "EVENTO_ALTAR" | "EVENTO_PORTAL";
 
 let estadoAtual: GameState = "LOBBY";
 let jogador: mainCharacter;
 let inimigosAtuais: enemy[] = [];
+let inimigosFugindo: enemy[] = [];
 let aliadosAtuais: enemy[] = [];
 let andarAtual: number = 1;
 let multiplicadorDificuldade: number = 1; // 1 = Normal, >1 = Expedições
@@ -111,6 +113,7 @@ const app = document.getElementById("game-container")!;
 
 let battleEventTimeout: any = null;
 let skillsPendenteDeEscolha: number = 0;
+let ultimoEventoSala: string = "";
 
 function iniciarExploracaoBase() {
   registrarChegadaAndar(1);
@@ -172,13 +175,22 @@ function atualizarLog(msg: string, onComplete?: () => void) {
 
   const logEl = document.querySelector('.action-log');
   if (logEl) {
-    logEl.textContent = "";
+    logEl.innerHTML = "";
     isTyping = true;
     let i = 0;
     function type() {
       if (i < msg.length) {
-        logEl!.textContent += msg.charAt(i);
-        i++;
+        if (msg.charAt(i) === '<') {
+          const endTag = msg.indexOf('>', i);
+          if (endTag !== -1) {
+            i = endTag + 1;
+          } else {
+            i++;
+          }
+        } else {
+          i++;
+        }
+        logEl!.innerHTML = msg.substring(0, i);
         typeWriterTimeout = setTimeout(type, 20); // 20ms per character
       } else {
         isTyping = false;
@@ -189,6 +201,41 @@ function atualizarLog(msg: string, onComplete?: () => void) {
   } else {
     if (onComplete) onComplete();
   }
+}
+
+function getConditionIcons(condicoes: { nome: string, duracao: number, stacks?: number }[]): string {
+  if (!condicoes || condicoes.length === 0) return "";
+  const icones: Record<string, string> = {
+    "Amedrontado": "😨",
+    "Envenenado": "🤢",
+    "Queimando": "🔥",
+    "Paralisado": "⚡",
+    "Caído": "💫",
+    "Lentidão": "🐌",
+    "Quebra de Armadura": "🛡️",
+    "Cegueira": "👁️‍🗨️"
+  };
+  return condicoes.map(c => `<span title="${c.nome} (${c.duracao} turnos${c.stacks ? `, ${c.stacks} stacks` : ''})">${icones[c.nome] || "❓"}</span>`).join(" ");
+}
+
+function getConditionBarColor(condicoes: { nome: string }[], defaultColor: string): string {
+  if (!condicoes || condicoes.length === 0) return defaultColor;
+
+  const prioridadesCor: Record<string, string> = {
+    "Envenenado": "#2b8a3e", // Verde veneno
+    "Queimando": "#e8590c",  // Laranja fogo
+    "Paralisado": "#fcc419", // Amarelo raio
+    "Caído": "#868e96",      // Cinza chao
+    "Lentidão": "#339af0",   // Azul gelo
+    "Quebra de Armadura": "#495057", // Cinza escuro
+    "Cegueira": "#212529",   // Preto/Cinza muito escuro
+    "Amedrontado": "#845ef7" // Roxo medo
+  };
+
+  for (let c of condicoes) {
+    if (prioridadesCor[c.nome]) return prioridadesCor[c.nome];
+  }
+  return defaultColor;
 }
 
 function render() {
@@ -285,7 +332,7 @@ function render() {
       <div style="display:flex; flex-direction:column; gap:10px; margin-bottom: 20px;">
         <button class="btn-lobby" id="btn-exp1-normal">Expedição 1 (Normal)</button>
         <button class="btn-lobby" id="btn-exp1-dificil" ${!hardDesbloqueado ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
-          Expedição 1 (Difícil) ${!hardDesbloqueado ? '🔒' : ''}
+          Expedição 1 (Difícil) ${!hardDesbloqueado ? '<img src="sprites/lock-sprite.png" style="width:36px; height:36px; vertical-align:-10px; margin-left:4px;" alt="🔒">' : ''}
         </button>
       </div>
       <button class="btn-lobby" style="background:#555;" id="btn-expedicoes-voltar">Voltar</button>
@@ -675,7 +722,7 @@ function render() {
     function secao(titulo: string, icone: string, cor: string, conteudo: string) {
       return `
         <div style="margin-bottom:24px;">
-          <h3 style="color:${cor}; margin:0 0 10px 0; font-size:1.1rem; border-bottom:1px solid #333; padding-bottom:6px;">${icone} ${titulo}</h3>
+          <h3 style="color:${cor}; margin:0 0 10px 0; font-size:1.1rem; border-bottom:1px solid #333; padding-bottom:6px; display:flex; align-items:center; height:44px;">${icone} ${titulo}</h3>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">${conteudo}</div>
         </div>`;
     }
@@ -685,9 +732,9 @@ function render() {
         <h2 class="hud-title" style="text-align:center; font-size:2rem; margin-bottom:4px;">Mochila</h2>
         <p style="text-align:center; color:#666; font-size:0.85rem; margin-bottom:20px;">Todos os seus itens e materiais.</p>
 
-        ${secao("Armas", "", "#ffd43b", armasHTML)}
-        ${secao("Armaduras", "", "#74c0fc", armadurasHTML)}
-        ${secao("Acessórios", "", "#a9e34b", acessoriosHTML)}
+        ${secao("Armas", `<img src="sprites/weapon-icon.png" style="width:44px; height:44px; margin-right:6px;" alt="⚔️">`, "#ffd43b", armasHTML)}
+        ${secao("Armaduras", `<img src="sprites/shield-icon.png" style="width:32px; height:32px; margin-right:6px;" alt="🛡️">`, "#74c0fc", armadurasHTML)}
+        ${secao("Acessórios", `<img src="sprites/acessory-icon.png" style="width:32px; height:32px; margin-right:6px;" alt="💍">`, "#a9e34b", acessoriosHTML)}
         ${secao("Consumíveis", "", "#ff8787", consumiveisHTML)}
 
         <div style="margin-bottom:24px;">
@@ -730,7 +777,7 @@ function render() {
         <h2 class="hud-title" style="text-align: center; font-size: 2rem;">🔨 Fornalha do Ferreiro</h2>
         <p style="text-align: center; color: #888; font-size: 0.9rem;">Crie novos equipamentos poderosos usando materiais dos monstros.</p>
         
-        <h3 style="color:#74c0fc; margin-top: 20px;">🛡️ Armaduras</h3>
+        <h3 style="color:#74c0fc; margin-top: 20px; display:flex; align-items:center; height:44px;"><img src="sprites/shield-icon.png" style="width:32px; height:32px; margin-right:6px;" alt="🛡️"> Armaduras</h3>
         <div style="display: flex; flex-direction: column; gap: 10px;">
     `;
     craftableArmaduras.forEach((a, idx) => {
@@ -752,7 +799,7 @@ function render() {
 
     html += `
         </div>
-        <h3 style="color:#a9e34b; margin-top: 20px;">💍 Acessórios</h3>
+        <h3 style="color:#a9e34b; margin-top: 20px; display:flex; align-items:center; height:44px;"><img src="sprites/acessory-icon.png" style="width:32px; height:32px; margin-right:6px;" alt="💍"> Acessórios</h3>
         <div style="display: flex; flex-direction: column; gap: 10px;">
     `;
     craftableAcessorios.forEach((a, idx) => {
@@ -1008,7 +1055,7 @@ function render() {
           <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px;">
             <!-- ARMAS -->
             <div>
-              <h3 style="color:#ffd43b; margin:0 0 8px 0;">⚔️ Arma</h3>
+              <h3 style="color:#ffd43b; margin:0 0 8px 0; display:flex; align-items:center; height:44px;"><img src="sprites/weapon-icon.png" style="width:44px; height:44px; margin-right:6px;" alt="⚔️"> Arma</h3>
               ${armasDisponiveis.map(a => `
                 <div class="has-tooltip btn-action-container" style="margin-bottom:5px;">
                   <button id="lb-arma-${a.name.replace(/\s/g, '_')}" class="btn-action"
@@ -1021,7 +1068,7 @@ function render() {
             </div>
             <!-- ARMADURAS -->
             <div>
-              <h3 style="color:#74c0fc; margin:0 0 8px 0;">🛡️ Armadura</h3>
+              <h3 style="color:#74c0fc; margin:0 0 8px 0; display:flex; align-items:center; height:44px;"><img src="sprites/shield-icon.png" style="width:32px; height:32px; margin-right:6px;" alt="🛡️"> Armadura</h3>
               ${armadurasDisponiveis.map(a => `
                 <button id="lb-arm-${a.name.replace(/\s/g, '_')}" class="btn-action"
                   style="width:100%; margin-bottom:5px; ${selectedArmadura === a.name ? 'border-color:#74c0fc; background:rgba(116,192,252,0.15);' : ''}">
@@ -1031,7 +1078,7 @@ function render() {
             </div>
             <!-- ACESSORIOS -->
             <div>
-              <h3 style="color:#a9e34b; margin:0 0 8px 0;">💍 Acessórios (${maxAcessorios})</h3>
+              <h3 style="color:#a9e34b; margin:0 0 8px 0; display:flex; align-items:center; height:44px;"><img src="sprites/acessory-icon.png" style="width:32px; height:32px; margin-right:6px;" alt="💍"> Acessórios (${maxAcessorios})</h3>
               ${Array.from({ length: maxAcessorios }).map((_, slotIdx) => `
                 <div style="margin-bottom:15px; border:1px dashed #555; padding:5px;">
                   <h4 style="margin:0 0 5px 0; font-size:0.9rem; color:#888;">Slot ${slotIdx + 1}</h4>
@@ -1051,7 +1098,7 @@ function render() {
 
           ${temEspacoSeguro ? `
             <div style="margin-top:10px; border:1px solid #ffd700; padding:10px; border-radius:8px; text-align:center;">
-              <h3 style="color:#ffd700; margin:0 0 10px 0;">🔒 Espaço Seguro (Marco 2)</h3>
+              <h3 style="color:#ffd700; margin:0 0 10px 0; display:flex; align-items:center; justify-content:center;"><img src="sprites/lock-sprite.png" style="width:36px; height:36px; margin-right:8px;" alt="🔒"> Espaço Seguro (Marco 2)</h3>
               <p style="font-size:0.9rem; color:#ccc; margin-bottom:10px;">Escolha 1 item equipado. Ele não será perdido se morrer até o Andar 6.</p>
               <select id="lb-seguro-select" style="padding:8px; background:#222; color:#fff; border:1px solid #555; border-radius:4px; font-size:1rem; width:100%; max-width:400px;">
                 <option value="">-- Nenhum --</option>
@@ -1106,13 +1153,13 @@ function render() {
 
   // HUD (Exploração, Batalha, Level Up)
   let htmlHUD = "";
-  const isEventScreen = ["LEVEL_UP_SKILL", "ALOCAR_ATRIBUTO", "EVENTO_BOSS", "EVENTO_RECOMPENSA"].includes(estadoAtual);
+  const isEventScreen = ["LEVEL_UP_SKILL", "ALOCAR_ATRIBUTO", "EVENTO_BOSS", "EVENTO_RECOMPENSA", "ESCOLHA_SALA", "EVENTO_FOGUEIRA", "EVENTO_ALTAR", "EVENTO_PORTAL"].includes(estadoAtual);
 
   if (!isEventScreen) {
     htmlHUD += `
       <div class="hud-container">
       <div class="hud-row">
-        <span class="hud-title">${jogador.name} ${jogador.classe ? `[${jogador.classe}]` : ""} - Nv. ${jogador.level}</span>
+        <span class="hud-title">${jogador.name} ${jogador.classe ? `[${jogador.classe}]` : ""} - Nv. ${jogador.level} <span style="font-size: 0.9em; margin-left: 5px; vertical-align: -1px;">${getConditionIcons(jogador.condicoes)}</span></span>
         <span class="text-yellow">XP: ${jogador.experience}/${jogador.experienceToNextLevel} | Ouro: ${jogador.gold}G | Andar ${andarAtual} (Sala ${salaAtual})</span>
       </div>`;
 
@@ -1127,7 +1174,7 @@ function render() {
     htmlHUD += `
       <div class="hud-row" style="gap: 15px;">
         <div class="bar-container ${jHpShake}">
-          <div class="bar-fill bg-red ${jHpClass}" style="--old-width: ${oldJogadorVidaPerc}%; --new-width: ${jogadorVidaPerc}%; width: ${jogadorVidaPerc}%"></div>
+          <div class="bar-fill ${jHpClass}" style="background-color: ${getConditionBarColor(jogador.condicoes, "#ff6b6b")}; --old-width: ${oldJogadorVidaPerc}%; --new-width: ${jogadorVidaPerc}%; width: ${jogadorVidaPerc}%"></div>
           <div class="bar-text">❤️ ${Math.round(Math.max(0, Math.floor(jogador.life)))}/${Math.round(jogador.maxLife)}</div>
         </div>
         <div class="bar-container">
@@ -1154,8 +1201,8 @@ function render() {
         <span class="text-gray">Crítico: ${(jogador.taxaCritica * 100).toFixed(0)}%</span>
       </div>
       <div class="stats-grid" style="margin-top:4px;">
-        <span style="color:#74c0fc;">🛡️ ${jogador.equippedArmor?.name || "Sem Armadura"}</span>
-        <span style="color:#a9e34b;">💍 ${jogador.equippedAccessories.length > 0 ? jogador.equippedAccessories.map(a => a.name).join(", ") : "Sem Acessório"}</span>
+        <span style="color:#74c0fc; display:flex; align-items:center;"><img src="sprites/shield-icon.png" style="width:32px; height:32px; margin-right:6px;" alt="🛡️"> ${jogador.equippedArmor?.name || "Sem Armadura"}</span>
+        <span style="color:#a9e34b; display:flex; align-items:center;"><img src="sprites/acessory-icon.png" style="width:32px; height:32px; margin-right:6px;" alt="💍"> ${jogador.equippedAccessories.length > 0 ? jogador.equippedAccessories.map(a => a.name).join(", ") : "Sem Acessório"}</span>
       </div>
       ${jogador.skills.filter(s => s.tipo === "PASSIVA").length > 0 ? `
       <div style="margin-top:8px; padding-top:6px; border-top: 1px solid #333;">
@@ -1182,11 +1229,26 @@ function render() {
 
         htmlHUD += `
         <div class="hud-row">
-          <span class="text-red">[${idx + 1}] ${ini.name}</span>
+          <span class="text-red">[${idx + 1}] ${ini.name} <span style="font-size: 0.9em; margin-left: 5px; vertical-align: -1px;">${getConditionIcons(ini.condicoes)}</span></span>
         </div>
         <div class="bar-container ${hpShake}" style="margin-bottom: 10px;">
-          <div class="bar-fill bg-red ${hpClass}" style="--old-width: ${oldPorcentagemVida}%; --new-width: ${porcentagemVida}%; width: ${porcentagemVida}%"></div>
+          <div class="bar-fill ${hpClass}" style="background-color: ${getConditionBarColor(ini.condicoes, "#ff6b6b")}; --old-width: ${oldPorcentagemVida}%; --new-width: ${porcentagemVida}%; width: ${porcentagemVida}%"></div>
           <div class="bar-text">${vidaAtual}/${ini.maxLife}</div>
+        </div>
+      `;
+      });
+
+      inimigosFugindo.forEach((ini) => {
+        htmlHUD += `
+        <div class="fleeing-enemy" style="margin-bottom: 10px;">
+          <div class="hud-row">
+            <span class="text-red" style="text-decoration: line-through;">[X] ${ini.name}</span>
+            <span style="color:#fcc419; margin-left: 10px; font-weight: bold;">(Fugiu de Medo!)</span>
+          </div>
+          <div class="bar-container">
+            <div class="bar-fill bg-red" style="width: 0%"></div>
+            <div class="bar-text" style="color: #fcc419;">FUGIU</div>
+          </div>
         </div>
       `;
       });
@@ -1207,10 +1269,10 @@ function render() {
 
           htmlHUD += `
           <div class="hud-row">
-            <span style="color: #9c36b5;">[Aliado] ${aliado.name} (Dano: ${aliado.attackPower})</span>
+            <span style="color: #9c36b5;">[Aliado] ${aliado.name} (Dano: ${aliado.attackPower}) <span style="font-size: 0.9em; margin-left: 5px; vertical-align: -1px;">${getConditionIcons(aliado.condicoes)}</span></span>
           </div>
           <div class="bar-container ${hpShake}" style="margin-bottom: 5px;">
-            <div class="bar-fill ${hpClass}" style="background-color: #9c36b5; --old-width: ${oldPorcentagemVida}%; --new-width: ${porcentagemVida}%; width: ${porcentagemVida}%"></div>
+            <div class="bar-fill ${hpClass}" style="background-color: ${getConditionBarColor(aliado.condicoes, "#9c36b5")}; --old-width: ${oldPorcentagemVida}%; --new-width: ${porcentagemVida}%; width: ${porcentagemVida}%"></div>
             <div class="bar-text">${vidaAtual}/${aliado.maxLife}</div>
           </div>
         `;
@@ -1320,12 +1382,12 @@ function aplicarLoadoutAoJogador() {
 }
 
 function avancarSala() {
-  if (salaAtual === 10) {
-    salaAtual = 0;
+  if (salaAtual === 7) {
+    salaAtual = 1;
     andarAtual++;
     atualizarAndarMax(andarAtual);
     registrarChegadaAndar(andarAtual);
-    atualizarLog(`Você avançou para o andar ${andarAtual}!`);
+    atualizarLog(`Você avançou para o andar ${andarAtual}, Sala 1!`);
   } else {
     salaAtual++;
     atualizarLog(`Você avançou para a sala ${salaAtual} do andar ${andarAtual}.`);
@@ -1337,7 +1399,8 @@ function gerarInimigos() {
   primeiraSalaCombate = true;
   assassinoCritou = false;
   inimigosAtuais = [];
-  if (salaAtual === 10) {
+  inimigosFugindo = [];
+  if (salaAtual === 7) {
     playMusic("boss");
     const lista = bossesPorAndar[andarAtual];
     if (lista) {
@@ -1349,7 +1412,7 @@ function gerarInimigos() {
       const finalATK = Math.floor(bossObj.attackPower * 1.3 * fatorEscalaATK * multiplicadorDificuldade);
       const finalHP = Math.floor(bossObj.life * 2.0 * fatorEscalaHP * multiplicadorDificuldade);
 
-      inimigosAtuais.push(new enemy(bossName, finalATK, finalHP));
+      inimigosAtuais.push(new enemy(bossName, finalATK, finalHP, true));
     }
   } else {
     playMusic("dungeon");
@@ -1362,8 +1425,12 @@ function gerarInimigos() {
 
         const fatorEscalaATK = Math.pow(1.38, andarAtual - 1);
         const fatorEscalaHP = Math.pow(1.45, andarAtual - 1);
-        const finalATK = Math.floor(obj.attackPower * fatorEscalaATK * multiplicadorDificuldade);
-        const finalHP = Math.floor(obj.life * fatorEscalaHP * multiplicadorDificuldade);
+
+        let eliteMultATK = combateAtualIsElite ? 1.5 : 1.0;
+        let eliteMultHP = combateAtualIsElite ? 1.5 : 1.0;
+
+        const finalATK = Math.floor(obj.attackPower * fatorEscalaATK * multiplicadorDificuldade * eliteMultATK);
+        const finalHP = Math.floor(obj.life * fatorEscalaHP * multiplicadorDificuldade * eliteMultHP);
 
         inimigosAtuais.push(new enemy(monstro, finalATK, finalHP));
       }
@@ -1381,7 +1448,7 @@ function gerarInimigos() {
 
   primeiroTurnoDoCombate = true;
 
-  if (salaAtual === 10) {
+  if (salaAtual === 7) {
     estadoAtual = "EVENTO_BOSS";
     logMensagem = `O ar fica pesado... O Boss ${inimigosAtuais[0]?.name} apareceu!`;
     opcoesAcao = [
@@ -1448,6 +1515,39 @@ function menuBatalhaPrincipal() {
     return;
   }
 
+  jogador.processarCondicoesInicioTurno();
+  if (jogador.life <= 0) {
+    menuBatalhaPrincipal(); // Rechama para processar a morte
+    return;
+  }
+
+  const caido = jogador.condicoes.find(c => c.nome === "Caído");
+  if (caido) {
+    opcoesAcao = [
+      {
+        texto: "Levantar (Gasta o turno)", acao: () => {
+          atualizarLog("Você gasta seu turno se levantando do chão.", () => {
+            jogador.condicoes = jogador.condicoes.filter(c => c.nome !== "Caído");
+            setTimeout(() => turnoInimigo(), 800);
+          });
+        }
+      }
+    ];
+    let avisos = "Você está caído! Você deve se levantar antes de agir.";
+    if (furiaPenalidadeAtiva) avisos += " \u26a0️ -15% dano (ressaca da Fúria)";
+    atualizarLog(avisos);
+    render();
+    return;
+  }
+
+  const paralisado = jogador.condicoes.find(c => c.nome === "Paralisado");
+  if (paralisado) {
+    atualizarLog(`Você está paralisado e não pode agir!`, () => {
+      setTimeout(() => turnoInimigo(), 800);
+    });
+    return;
+  }
+
   // Fúria Descontrolada: pula o primeiro turno do jogador no combate penalizado
   if (furiaPenalidadeAtiva && !furiaSkipouPrimeiroTurno) {
     furiaSkipouPrimeiroTurno = true;
@@ -1464,8 +1564,7 @@ function menuBatalhaPrincipal() {
   opcoesAcao = [
     { texto: "Atacar", acao: () => escolherAlvoAtaque() },
     { texto: "Habilidades", acao: () => menuHabilidades() },
-    { texto: "Inventário", acao: () => menuInventario() },
-    { texto: "Fugir", acao: () => confirmarFuga() }
+    { texto: "Inventário", acao: () => menuInventario() }
   ];
   if (avisos) atualizarLog(avisos);
   render();
@@ -1502,6 +1601,38 @@ function menuTrocarArma() {
   render();
 }
 
+function escolherAlvoParaItem(item: any, itemIdx: number) {
+  if (inimigosAtuais.length === 1) {
+    usarConsumivelEmAlvo(item, itemIdx, inimigosAtuais[0]!);
+  } else {
+    opcoesAcao = inimigosAtuais.map((ini) => ({
+      texto: `Usar em ${ini.name}`,
+      acao: () => usarConsumivelEmAlvo(item, itemIdx, ini)
+    }));
+    opcoesAcao.push({ texto: "Voltar", acao: () => menuUsarConsumivel() });
+    render();
+  }
+}
+
+function usarConsumivelEmAlvo(item: any, itemIdx: number, alvo: enemy) {
+  const hpAntes = jogador.life;
+  const buff = item.usar(jogador, alvo);
+  const curado = Math.max(0, jogador.life - hpAntes);
+  if (curado > 0) runStats.vidaCurada += curado;
+  if (buff) jogador.activeBuffs.push(buff);
+  jogador.inventory.splice(itemIdx, 1);
+
+  const save = lerSave();
+  save.consumiveisExtras = jogador.inventory;
+  limparConsumiveisExtras();
+  jogador.inventory.forEach(i => adicionarConsumivelExtra(i));
+
+  opcoesAcao = [];
+  atualizarLog(`Você usou ${item.name}!`, () => {
+    setTimeout(() => turnoInimigo(), 500);
+  });
+}
+
 function menuUsarConsumivel() {
   if (jogador.inventory.length === 0) {
     atualizarLog("Você não tem itens consumíveis!");
@@ -1514,6 +1645,10 @@ function menuUsarConsumivel() {
     return {
       texto: `Usar ${item.name}`,
       acao: () => {
+        if (item.requiresTarget) {
+          escolherAlvoParaItem(item, idx);
+          return;
+        }
         const hpAntes = jogador.life;
         const buff = item.usar(jogador);
         const curado = jogador.life - hpAntes;
@@ -1539,13 +1674,6 @@ function menuUsarConsumivel() {
   render();
 }
 
-function confirmarFuga() {
-  opcoesAcao = [
-    { texto: "Tem Certeza?", acao: () => tentarFugir() },
-    { texto: "Continuar", acao: () => menuBatalhaPrincipal() }
-  ];
-  render();
-}
 
 function escolherAlvoAtaque() {
   if (inimigosAtuais.length === 1) {
@@ -1627,6 +1755,17 @@ function atacarInimigo(alvoIdx: number) {
   if (prontidaoIndex !== -1) msg += ` [Prontidão +50% dano]`;
   if (temDominioDaMorte && mortosVivos.includes(alvo.name)) msg += ` [Domínio da Morte +50% dano]`;
   if (temMataGigantes && bonusMataGigantes > 0) msg += ` [Mata Gigantes +${(bonusMataGigantes * 100).toFixed(1)}% dano]`;
+
+  if (jogador.equippedWeapon.name === "Adaga Venenosa" && alvo.life > 0 && Math.random() <= 0.50) {
+    alvo.adicionarCondicao({ nome: "Envenenado", duracao: 3, danoOpcional: 10 });
+    msg += ` [Veneno Aplicado!]`;
+  }
+  if (jogador.equippedWeapon.name === "Martelo de Guerra" && alvo.life > 0 && Math.random() <= 0.15) {
+    if (!alvo.jaCaiu) {
+      alvo.adicionarCondicao({ nome: "Caído", duracao: 1 });
+      msg += ` [Alvo Derrubado!]`;
+    }
+  }
 
   if (alvo.life <= 0) {
     msg += ` ${alvo.name} foi derrotado!`;
@@ -1760,7 +1899,7 @@ function usarHabilidade(idx: number) {
   };
 
   const habilidadesAlvoUnico = ["Golpe Forte", "Drenar Vida", "Cortes Fantasma"];
-  
+
   if (habilidadesAlvoUnico.includes(habilidade.nome)) {
     const vivos = inimigosAtuais.filter(i => i.life > 0);
     if (vivos.length > 1) {
@@ -1786,23 +1925,6 @@ function usarHabilidade(idx: number) {
   executar(0);
 }
 
-function tentarFugir() {
-  opcoesAcao = [];
-  if (Math.random() < 0.6) {
-    runStats.resultado = "FUGA";
-    estadoAtual = "ESTATISTICAS_RUN";
-    opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
-    adicionarGold(jogador.gold);
-    jogador.removerEquipamentos();
-    atualizarLog(`Você fugiu com sucesso! Extraiu ${jogador.gold}G e todos os seus itens para o Lobby.`);
-  } else {
-    atualizarLog("Você falhou em fugir!", () => {
-      setTimeout(() => {
-        turnoInimigo();
-      }, 500);
-    });
-  }
-}
 
 function processarMortes(): boolean {
   let mortos = false;
@@ -1813,7 +1935,7 @@ function processarMortes(): boolean {
     if (alvo.life <= 0) {
       mortos = true;
       jogador.experience += alvo.xpReward;
-      jogador.gold += alvo.goldReward;
+      jogador.gold += Math.floor(alvo.goldReward * jogador.goldMultiplier);
 
       // Drops de materiais
       const drops = rolarDrops(alvo.name, jogador.luck);
@@ -1946,15 +2068,97 @@ function faseAtaqueInimigos() {
     return;
   }
 
+  // Processar a Nevasca
+  const nevasca = jogador.activeBuffs.find(b => b.name === "Nevasca");
+  if (nevasca) {
+    const turnosPassados = 100 - nevasca.duration + 1;
+    const chance = Math.min(0.30, turnosPassados * 0.10);
+    const danoNevasca = jogador.calcularDanoSkill(Math.max(1, Math.floor(jogador.intelligence * 0.1) + 10));
+
+    console.log(chalk.bgCyan.white.bold(`❄️ A Nevasca atinge a sala! (Chance de paralisar: ${(chance * 100).toFixed(0)}%)`));
+    for (let ini of inimigosAtuais) {
+      if (ini.life > 0) {
+        ini.life -= danoNevasca;
+        let msg = `O ${ini.name} sofreu ${danoNevasca} de dano de gelo.`;
+        if (ini.life > 0 && Math.random() < chance) {
+          ini.adicionarCondicao({ nome: "Paralisado", duracao: 1 });
+          msg += ` E congelou (Paralisado)!`;
+        }
+        console.log(chalk.cyanBright(msg));
+      }
+    }
+  }
+
   let totalDano = 0;
   jogador.processarBuffs();
 
   // Atualiza bônus da janela de Parry (habilidade Velocidade)
   const temVelocidade = jogador.activeBuffs.some(b => b.name === "Velocidade");
-  setParryWindowBonus(temVelocidade ? 20 : 0); // +20% de janela quando ativo
+  const temLentidao = jogador.condicoes.some(c => c.nome === "Lentidão");
+  let parryBonus = temVelocidade ? 20 : 0;
+  if (temLentidao) parryBonus -= 25; // Lentidão penaliza a janela de parry
+  setParryWindowBonus(parryBonus);
 
   let critou = false;
-  inimigosAtuais.forEach(ini => {
+
+  for (let i = inimigosAtuais.length - 1; i >= 0; i--) {
+    const ini = inimigosAtuais[i]!;
+
+    // Processa danos por tempo (Queimando, Veneno)
+    ini.processarCondicoesInicioTurno();
+    if (ini.life <= 0) continue; // Inimigo morreu pro dano da condição (será limpo no processarMortes)
+
+    // Amedrontado (Fuga ou pular turno)
+    const amedrontado = ini.condicoes.find(c => c.nome === "Amedrontado");
+    if (amedrontado) {
+      if (Math.random() <= 0.15) {
+        console.log(chalk.gray(`👻 O inimigo ${ini.name} fugiu de medo! Você ganhou a XP e o Ouro!`));
+        jogador.experience += ini.xpReward;
+        jogador.levelUp();
+        jogador.gold += Math.floor(ini.goldReward * jogador.goldMultiplier);
+
+        inimigosFugindo.push(ini);
+        inimigosAtuais.splice(i, 1);
+
+        setTimeout(() => {
+          const idx = inimigosFugindo.indexOf(ini);
+          if (idx !== -1) {
+            inimigosFugindo.splice(idx, 1);
+            if (estadoAtual === "BATALHA") render();
+          }
+        }, 2000);
+
+        continue;
+      } else {
+        console.log(chalk.gray(`😨 O inimigo ${ini.name} está amedrontado demais para atacar.`));
+        continue;
+      }
+    }
+
+    // Paralisado
+    if (ini.condicoes.some(c => c.nome === "Paralisado")) {
+      console.log(chalk.gray(`⚡ O inimigo ${ini.name} está paralisado e não pode se mover!`));
+      continue;
+    }
+
+    // Caído
+    if (ini.condicoes.some(c => c.nome === "Caído")) {
+      console.log(chalk.gray(`O inimigo ${ini.name} gasta seu turno se levantando.`));
+      ini.condicoes = ini.condicoes.filter(c => c.nome !== "Caído");
+      continue;
+    }
+
+    // Envenenado (chance de erro)
+    const envenenado = ini.condicoes.find(c => c.nome === "Envenenado");
+    if (envenenado) {
+      const stacks = envenenado.stacks || 1;
+      const missChance = stacks * 0.05;
+      if (Math.random() <= missChance) {
+        console.log(chalk.greenBright(`🤢 O inimigo ${ini.name} cambaleou devido ao veneno e errou o ataque!`));
+        continue;
+      }
+    }
+
     // Nova fórmula de redução (logarítmica): máx teórico nunca chega a 100%
     const reducao = jogador.defense / (jogador.defense + 100);
     let dano = Math.floor(ini.attackPower * (1 - reducao));
@@ -1967,7 +2171,21 @@ function faseAtaqueInimigos() {
 
     if (dano < 1) dano = 1;
     totalDano += dano;
-  });
+  }
+
+  processarMortes(); // Limpa os inimigos que morreram para danos de condição
+  if (inimigosAtuais.length === 0) {
+    vencerBatalha();
+    return;
+  }
+
+  if (totalDano === 0) {
+    // Se nenhum inimigo atacou com sucesso (pularam, fugiram ou erraram)
+    atualizarLog("Os inimigos não conseguiram atacar!", () => {
+      setTimeout(() => menuBatalhaPrincipal(), 800);
+    });
+    return;
+  }
 
   if (critou) triggerScreenShake = true;
 
@@ -1978,7 +2196,7 @@ function faseAtaqueInimigos() {
     () => {
       // Parry bem sucedido: sem dano
       runStats.parryAcertos++;
-      let parryMsg = `⚔️ PARRY PERFEITO! Você bloqueou o ataque dos inimigos!`;
+      let parryMsg = `<img src="sprites/weapon-icon.png" style="width:44px; height:44px; vertical-align:-12px;" alt="⚔️"> PARRY PERFEITO! Você bloqueou o ataque dos inimigos!`;
 
       if (parryStreak === 10 && !temFlag('marco_10_parrys')) {
         desbloquearFlag('marco_10_parrys');
@@ -2016,15 +2234,263 @@ function faseAtaqueInimigos() {
       if (jogador._armorPassivaAtiva === "Bastião" && jogador.life > jogador.maxLife * 0.5) {
         danoFinalAoJogador = Math.floor(danoFinalAoJogador * 0.90);
       }
+      danoFinalAoJogador = Math.floor(danoFinalAoJogador * jogador.danoSofridoMultiplier);
       jogador.life -= danoFinalAoJogador;
       runStats.danoRecebido += danoFinalAoJogador;
       const bastMsg = jogador._armorPassivaAtiva === "Bastião" ? " [Bastião: -10%]" : "";
-      atualizarLog(`Os inimigos atacam e causam ${danoFinalAoJogador} de dano!${bastMsg}`, () => {
+
+      let extraLog = "";
+      for (const ini of inimigosAtuais) {
+        if (ini.life <= 0) continue;
+        const c = ini.condicoes;
+        if (!c.some(x => x.nome === "Paralisado" || x.nome === "Caído" || x.nome === "Amedrontado")) {
+          if (["Dragão", "Dragão Negro", "Serpente de Fogo", "Diabrete"].includes(ini.name) && Math.random() <= 0.25) {
+            jogador.adicionarCondicao({ nome: "Queimando", duracao: 2, danoOpcional: 15 });
+            extraLog += `<br>🔥 O ${ini.name} deixou você Queimando!`;
+          }
+          if (["Rainha da Praga", "Centopeia Anciã", "Aranha Gigante", "Verme da Areia"].includes(ini.name) && Math.random() <= 0.30) {
+            jogador.adicionarCondicao({ nome: "Envenenado", duracao: 3, danoOpcional: 10 });
+            extraLog += `<br>🤢 O ${ini.name} envenenou você!`;
+          }
+          if (["Medusa", "Banshee"].includes(ini.name) && Math.random() <= 0.15) {
+            jogador.adicionarCondicao({ nome: "Paralisado", duracao: 1 });
+            extraLog += `<br>⚡ O ${ini.name} paralisou você!`;
+          }
+          if (["Minotauro", "Titã", "Golem de Pedra"].includes(ini.name) && Math.random() <= 0.20) {
+            jogador.adicionarCondicao({ nome: "Caído", duracao: 1 });
+            extraLog += `<br>💢 O ${ini.name} te derrubou!`;
+          }
+          if (["Zumbi", "Múmia", "Lich", "ArquLich", "O Segundo Dedo"].includes(ini.name) && Math.random() <= 0.25) {
+            jogador.adicionarCondicao({ nome: "Lentidão", duracao: 2 });
+            extraLog += `<br>🐌 O ${ini.name} reduziu seus reflexos (Lentidão)!`;
+          }
+          if (["O Errante", "Servo das Sombras", "Necromante"].includes(ini.name) && Math.random() <= 0.15) {
+            jogador.adicionarCondicao({ nome: "Amedrontado", duracao: 2 });
+            extraLog += `<br>😨 O terror do ${ini.name} te amedrontou!`;
+          }
+        }
+      }
+
+      atualizarLog(`Os inimigos atacam e causam ${danoFinalAoJogador} de dano!${bastMsg}${extraLog}`, () => {
         setTimeout(() => menuBatalhaPrincipal(), 500);
       });
     }
   );
 }
+
+// --- EVENTOS E ESCOLHA DE SALAS ---
+
+let combateAtualIsElite = false;
+
+function gerarOpcoesDeSala() {
+  if (salaAtual === 6) {
+    estadoAtual = "ESCOLHA_SALA";
+    logMensagem = "Uma aura pesada emana da próxima sala... O Boss aguarda!";
+    opcoesAcao = [
+      { texto: "👑 Entrar no Covil do Boss", acao: () => { combateAtualIsElite = false; avancarSala(); } }
+    ];
+    render();
+    return;
+  }
+
+  if (salaAtual === 7) {
+    estadoAtual = "EVENTO_PORTAL";
+    logMensagem = "Com o Boss derrotado, um Portal de Extração se abre diante de você, emanando uma energia segura.";
+    opcoesAcao = [
+      { texto: "🌀 Entrar no Portal (Extrair e Vencer)", acao: () => extrairJogador() },
+      { texto: "🚪 Avançar para o Próximo Andar", acao: () => { combateAtualIsElite = false; avancarSala(); } }
+    ];
+    render();
+    return;
+  }
+
+  estadoAtual = "ESCOLHA_SALA";
+  logMensagem = "Escolha seu próximo destino:";
+
+  let temFogueira = (salaAtual === 5);
+  const opcoesPossiveis = [];
+
+  if (temFogueira) {
+    opcoesPossiveis.push({ texto: "🏕️ Fogueira", acao: () => eventoFogueira() });
+    opcoesPossiveis.push({ texto: "⚔️ Combate Comum", acao: () => { combateAtualIsElite = false; avancarSala(); } });
+  } else {
+    const numPortas = Math.random() < 0.3 ? 3 : 2;
+    const tipos = ["COMBATE", "ELITE", "FOGUEIRA", "ALTAR", "BAU", "PORTAL"];
+    const pesos = [65, 15, 5, 5, 5, 5];
+
+    const selecionados = new Set<string>();
+    while (selecionados.size < numPortas) {
+      let sum = pesos.reduce((a, b) => a + b, 0);
+      let r = Math.random() * sum;
+      let acc = 0;
+      for (let i = 0; i < tipos.length; i++) {
+        acc += pesos[i]!;
+        if (r <= acc) {
+          const tipoSorteado = tipos[i]!;
+          // Só adiciona se não for o mesmo evento consecutivo (exceto combates que podem repetir)
+          if (tipoSorteado === ultimoEventoSala && !["COMBATE", "ELITE"].includes(tipoSorteado)) {
+            break; // Pula essa tentativa e rola de novo
+          }
+          selecionados.add(tipoSorteado);
+          break;
+        }
+      }
+    }
+
+    selecionados.forEach(tipo => {
+      switch (tipo) {
+        case "COMBATE": opcoesPossiveis.push({ texto: "⚔️ Combate Comum", acao: () => { ultimoEventoSala = "COMBATE"; combateAtualIsElite = false; avancarSala(); } }); break;
+        case "ELITE": opcoesPossiveis.push({ texto: "💀 Combate de Elite", acao: () => { ultimoEventoSala = "ELITE"; combateAtualIsElite = true; avancarSala(); } }); break;
+        case "FOGUEIRA": opcoesPossiveis.push({ texto: "🏕️ Fogueira", acao: () => { ultimoEventoSala = "FOGUEIRA"; eventoFogueira(); } }); break;
+        case "ALTAR": opcoesPossiveis.push({ texto: "🩸 Altar Sombrio", acao: () => { ultimoEventoSala = "ALTAR"; eventoAltar(); } }); break;
+        case "BAU": opcoesPossiveis.push({ texto: "🎁 Sala do Tesouro", acao: () => { ultimoEventoSala = "BAU"; eventoBauRandom(); } }); break;
+        case "PORTAL": opcoesPossiveis.push({ texto: "🌀 Portal de Extração", acao: () => { ultimoEventoSala = "PORTAL"; eventoPortal(); } }); break;
+      }
+    });
+  }
+
+  opcoesAcao = opcoesPossiveis;
+  render();
+}
+
+function eventoFogueira() {
+  salaAtual++;
+  estadoAtual = "EVENTO_FOGUEIRA";
+  logMensagem = "Você encontra uma fogueira acolhedora. Seu calor revigora seu corpo e mente.";
+  opcoesAcao = [
+    {
+      texto: "Descansar (Cura 40% HP/Mana)", acao: () => {
+        jogador.life = Math.min(jogador.maxLife, jogador.life + Math.floor(jogador.maxLife * 0.4));
+        jogador.mana = Math.min(jogador.maxMana, jogador.mana + Math.floor(jogador.maxMana * 0.4));
+        atualizarLog("Você descansou e recuperou vida e mana.", () => gerarOpcoesDeSala());
+      }
+    },
+    {
+      texto: "Meditar (+1 Atributo)", acao: () => {
+        jogador.pontosDeAtributo++;
+        irParaAlocacaoDeAtributo();
+      }
+    }
+  ];
+  render();
+}
+
+function eventoAltar() {
+  salaAtual++;
+  estadoAtual = "EVENTO_ALTAR";
+  logMensagem = "Um altar sombrio feito de obsidiana pulsa com magia antiga. Um sussurro oferece poder em troca de sacrifício.";
+
+  const pactosGerais = [
+    {
+      texto: "Pacto de Sangue (-40% Max HP / +5 Atributo)", acao: () => {
+        const hpPerdido = Math.max(100, Math.floor(jogador.maxLife * 0.4));
+        jogador.maxLife -= hpPerdido;
+        if (jogador.life > jogador.maxLife) jogador.life = jogador.maxLife;
+        jogador.pontosDeAtributo += 5;
+        atualizarLog(`Sua força vital foi drenada (-${hpPerdido} Max HP). O poder flui por suas veias!`, () => irParaAlocacaoDeAtributo());
+      }
+    },
+    {
+      texto: "Pacto do Caniçal (-50% Max HP / +20% Dano e Roubo de Vida)", acao: () => {
+        const hpPerdido = Math.max(100, Math.floor(jogador.maxLife * 0.5));
+        jogador.maxLife -= hpPerdido;
+        if (jogador.life > jogador.maxLife) jogador.life = jogador.maxLife;
+        jogador.lifesteal += 0.20;
+        jogador.multDanoArma += 0.20;
+        jogador.multDanoSkill += 0.20;
+        atualizarLog(`Sua humanidade se esvai (-${hpPerdido} Max HP). Você se sente faminto por sangue!`, () => gerarOpcoesDeSala());
+      }
+    },
+    {
+      texto: "Pacto da Ganância (+35% Dano Inimigo / +75% Ouro)", acao: () => {
+        jogador.danoSofridoMultiplier += 0.35;
+        jogador.goldMultiplier += 0.75;
+        atualizarLog("O brilho do ouro te cega para o perigo. Inimigos causarão mais dano, mas você será rico!", () => gerarOpcoesDeSala());
+      }
+    },
+    {
+      texto: "Pacto do Eremita (0 Max Mana / +20% Crítico, +3 FOR/DES)", acao: () => {
+        jogador.maxMana = 0;
+        jogador.mana = 0;
+        jogador.strength += 3;
+        jogador.dexterity += 3;
+        jogador.bonusCritico += 0.20;
+        atualizarLog("Sua ligação com a mana foi cortada, mas seu instinto físico foi maximizado.", () => gerarOpcoesDeSala());
+      }
+    },
+    {
+      texto: "Pacto do Estudioso (-75% Dano Arma / +30% Dano Habilidade)", acao: () => {
+        jogador.multDanoArma -= 0.75;
+        jogador.multDanoSkill += 0.30;
+        atualizarLog("Você abdica da força bruta em favor do conhecimento arcano.", () => gerarOpcoesDeSala());
+      }
+    }
+  ];
+
+  // Seleciona 2 ou 3 aleatórios
+  const pactosEscolhidos = [];
+  const copiaPactos = [...pactosGerais];
+  const qdt = Math.random() < 0.5 ? 2 : 3;
+  for (let i = 0; i < qdt; i++) {
+    const idx = Math.floor(Math.random() * copiaPactos.length);
+    pactosEscolhidos.push(copiaPactos.splice(idx, 1)[0]);
+  }
+
+  opcoesAcao = pactosEscolhidos as typeof opcoesAcao;
+  opcoesAcao.push({
+    texto: "Ignorar o Altar", acao: () => {
+      atualizarLog("Você recusa o chamado das sombras e decide seguir adiante.", () => gerarOpcoesDeSala());
+    }
+  });
+  render();
+}
+
+function eventoPortal() {
+  salaAtual++;
+  estadoAtual = "EVENTO_PORTAL";
+  logMensagem = "Um portal brilhante de energia estabilizada está no centro da sala. Ele leva de volta ao lobby.";
+  opcoesAcao = [
+    { texto: "🌀 Extrair (Salva Ouro e Itens)", acao: () => extrairJogador() },
+    { texto: "Ignorar (Continuar Explorando)", acao: () => gerarOpcoesDeSala() }
+  ];
+  render();
+}
+
+function eventoBauRandom() {
+  salaAtual++;
+  estadoAtual = "EVENTO_RECOMPENSA";
+  let tipoBau = "COMUM";
+  let r = Math.random();
+  if (r < 0.1) tipoBau = "EPICO";
+  else if (r < 0.4) tipoBau = "RARO";
+
+  const bau = listaBaus[tipoBau as keyof typeof listaBaus];
+  const recompensa = abrirBau(bau, jogador);
+  let msgBau = `Você encontrou um ${bau.nome} na sala!\n\n`;
+  if (recompensa.tipo === "arma") {
+    jogador.weaponInventory.push(recompensa.item);
+    msgBau += `<img src="sprites/weapon-icon.png" style="width:44px; height:44px; vertical-align:-12px;" alt="⚔️"> Arma: ${recompensa.item.name} (${recompensa.item.raridade})`;
+  } else {
+    jogador.inventory.push(recompensa.item.name);
+    msgBau += `🧪 Consumível: ${recompensa.item.name}`;
+  }
+
+  logMensagem = msgBau;
+  opcoesAcao = [
+    { texto: "Continuar", acao: () => gerarOpcoesDeSala() }
+  ];
+  render();
+}
+
+function extrairJogador() {
+  runStats.resultado = "VITÓRIA";
+  estadoAtual = "ESTATISTICAS_RUN";
+  opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
+  adicionarGold(jogador.gold);
+  jogador.removerEquipamentos();
+  atualizarLog(`Você escapou com sucesso através do portal! Extraiu ${jogador.gold}G e seus itens para o Lobby.`);
+}
+
 
 function vencerBatalha() {
   aliadosAtuais = []; // Limpa os aliados invocados (não persistem)
@@ -2037,7 +2503,7 @@ function vencerBatalha() {
 
   // XP de monstros individuais (enemies.ts) + bônus de sala quadrático
   const xpBonusSala = Math.floor(((andarAtual * andarAtual * 20) + (salaAtual * andarAtual * 5)) * multiplicadorDificuldade);
-  const goldSala = Math.floor(((andarAtual * 5) + salaAtual) * multiplicadorDificuldade);
+  const goldSala = Math.floor(((andarAtual * 5) + salaAtual) * multiplicadorDificuldade * jogador.goldMultiplier);
   jogador.experience += xpBonusSala;
   jogador.gold += goldSala;
 
@@ -2049,7 +2515,7 @@ function vencerBatalha() {
   }
 
   // BOSS (Sala 10): sempre dá baú
-  if (salaAtual === 10) {
+  if (salaAtual === 7) {
     // Check para desbloqueio do Necromante
     // No andar 4 a sala 10 é o Servo das Sombras
     if (andarAtual === 4 && jogador.life >= jogador.maxLife / 2) {
@@ -2058,11 +2524,11 @@ function vencerBatalha() {
 
     const bau = bauDoAndar(andarAtual);
     const recompensa = abrirBau(bau, jogador);
-    let msgBau = `🏆 Boss derrotado! Você recebeu um ${bau.nome}!\n`;
+    let msgBau = `${logMensagem}\n\n🏆 Boss derrotado! Você recebeu um ${bau.nome}!\n`;
 
     if (recompensa.tipo === "arma") {
       jogador.weaponInventory.push(recompensa.item);
-      msgBau += `⚔️ Arma encontrada: ${recompensa.item.name} (${recompensa.item.raridade})`;
+      msgBau += `<img src="sprites/weapon-icon.png" style="width:44px; height:44px; vertical-align:-12px;" alt="⚔️"> Arma encontrada: ${recompensa.item.name} (${recompensa.item.raridade})`;
     } else {
       jogador.inventory.push(recompensa.item.name);
       msgBau += `🧪 Consumível encontrado: ${recompensa.item.name}`;
@@ -2075,7 +2541,7 @@ function vencerBatalha() {
         desbloquearFlag("EXP_1_HARD_DEX_20");
       }
       msgBau = `🎉 EXPEDIÇÃO CONCLUÍDA! Você derrotou o Boss Final e recebeu um ${bau.nome}!\n`;
-      if (recompensa.tipo === "arma") msgBau += `⚔️ Arma: ${recompensa.item.name}`;
+      if (recompensa.tipo === "arma") msgBau += `<img src="sprites/weapon-icon.png" style="width:44px; height:44px; vertical-align:-12px;" alt="⚔️"> Arma: ${recompensa.item.name}`;
       else msgBau += `🧪 Consumível: ${recompensa.item.name}`;
     }
 
@@ -2095,10 +2561,11 @@ function vencerBatalha() {
             if (andarAtual >= 10) {
               runStats.resultado = "VITÓRIA";
               estadoAtual = "ESTATISTICAS_RUN";
+              adicionarGold(jogador.gold);
+              jogador.removerEquipamentos();
               opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
             } else {
-              estadoAtual = "EXPLORACAO";
-              opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+              gerarOpcoesDeSala();
             }
             render();
           }
@@ -2115,9 +2582,7 @@ function vencerBatalha() {
   const chanceArma = (0.05 + (andarAtual * 0.015)) * multiplicadorDificuldade; // 5% andar 1 → ~20% andar 10
   const roll = Math.random();
 
-  let msgSala = `Batalha vencida! +${xpBonusSala} XP e +${goldSala}G.`;
-  let dropOcorreu = false;
-
+  let msgSala = `${logMensagem}\n\nBatalha vencida! +${xpBonusSala} XP e +${goldSala}G.`;
 
   if (roll < chanceArma) {
     // Drop de arma: raridade escala com o andar
@@ -2133,7 +2598,6 @@ function vencerBatalha() {
       const armaDropada = armasFiltradas[Math.floor(Math.random() * armasFiltradas.length)]!;
       jogador.weaponInventory.push(armaDropada);
       msgSala += `\n🗡️ Item encontrado: ${armaDropada.name} (${armaDropada.raridade})!`;
-      dropOcorreu = true;
     }
   } else if (roll < chanceArma + chanceConsumivel) {
     // Drop de consumível
@@ -2141,45 +2605,27 @@ function vencerBatalha() {
     const consDropado = consumiveis[Math.floor(Math.random() * consumiveis.length)]!;
     jogador.inventory.push(consDropado.name);
     msgSala += `\n🧪 Consumível encontrado: ${consDropado.name}!`;
-    dropOcorreu = true;
   }
 
-  if (dropOcorreu) {
-    estadoAtual = "EVENTO_RECOMPENSA";
-    logMensagem = msgSala;
-    opcoesAcao = [
-      {
-        texto: "Continuar",
-        acao: () => {
-          if (nivelUp > 0) {
-            skillsPendenteDeEscolha = nivelUp;
-            estadoAtual = "LEVEL_UP_SKILL";
-            atualizarLog("Você subiu de nível!", () => {
-              setTimeout(() => escolherNovaSkillLevelUp(), 800);
-            });
-          } else {
-            estadoAtual = "EXPLORACAO";
-            opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
-            atualizarLog("A sala está limpa. O que fazer agora?");
-            render();
-          }
+  estadoAtual = "EVENTO_RECOMPENSA";
+  logMensagem = msgSala;
+  opcoesAcao = [
+    {
+      texto: "Continuar",
+      acao: () => {
+        if (nivelUp > 0) {
+          skillsPendenteDeEscolha = nivelUp;
+          estadoAtual = "LEVEL_UP_SKILL";
+          atualizarLog("Você subiu de nível!", () => {
+            setTimeout(() => escolherNovaSkillLevelUp(), 800);
+          });
+        } else {
+          gerarOpcoesDeSala();
         }
       }
-    ];
-    render();
-  } else {
-    if (nivelUp > 0) {
-      skillsPendenteDeEscolha = nivelUp;
-      estadoAtual = "LEVEL_UP_SKILL";
-      atualizarLog(msgSala, () => {
-        setTimeout(() => escolherNovaSkillLevelUp(), 800);
-      });
-    } else {
-      estadoAtual = "EXPLORACAO";
-      opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
-      atualizarLog(msgSala);
     }
-  }
+  ];
+  render();
 }
 
 function escolherNovaSkillLevelUp() {
@@ -2211,15 +2657,13 @@ function escolherNovaSkillLevelUp() {
 function irParaAlocacaoDeAtributo() {
   estadoAtual = "ALOCAR_ATRIBUTO";
   if (jogador.pontosDeAtributo <= 0) {
-    if (andarAtual >= 10 && salaAtual === 10) {
+    if (andarAtual >= 10 && salaAtual === 7) {
       runStats.resultado = "VITÓRIA";
       estadoAtual = "ESTATISTICAS_RUN";
       opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
       atualizarLog("🎉 EXPEDIÇÃO CONCLUÍDA! Você finalizou o Andar 10 e sua progressão foi salva.");
     } else {
-      estadoAtual = "EXPLORACAO";
-      opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
-      atualizarLog("Você subiu de nível!");
+      gerarOpcoesDeSala();
     }
     return;
   }

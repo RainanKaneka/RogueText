@@ -1,3 +1,6 @@
+import chalk from "chalk";
+import type { Condicao } from "./conditions";
+
 export class enemy {
   public life: number = 0
   public maxLife: number = 0
@@ -5,8 +8,11 @@ export class enemy {
   public name: string = ''
   public xpReward: number = 0
   public goldReward: number = 0
+  public condicoes: Condicao[] = [];
+  public isBoss: boolean = false;
+  public jaCaiu: boolean = false;
 
-  constructor(name: string, attack: number, life: number) {
+  constructor(name: string, attack: number, life: number, isBoss: boolean = false) {
 
     this.life = life
     this.maxLife = life
@@ -14,10 +20,65 @@ export class enemy {
     this.xpReward = Math.floor((this.attackPower * 2.5) + (this.life * 1.5));
     this.goldReward = Math.floor(this.attackPower * 1.25) + (this.life * 1.25)
     this.name = name
+    this.isBoss = isBoss;
   }
 
   estaVivo(): boolean {
     return this.life > 0;
+  }
+
+  adicionarCondicao(condicao: Condicao): void {
+    if (this.isBoss && ["Amedrontado", "Paralisado", "Caído"].includes(condicao.nome)) {
+      console.log(chalk.gray(`O Boss ${this.name} é imune a ${condicao.nome}.`));
+      return;
+    }
+
+    if (condicao.nome === "Caído") {
+      if (this.jaCaiu) {
+        console.log(chalk.gray(`O inimigo ${this.name} já aprendeu a se esquivar e resistiu a ser derrubado novamente.`));
+        return;
+      } else {
+        this.jaCaiu = true;
+      }
+    }
+
+    if (condicao.nome === "Envenenado") {
+      const existe = this.condicoes.find(c => c.nome === "Envenenado");
+      if (existe) {
+        existe.duracao = Math.max(existe.duracao, condicao.duracao);
+        if (condicao.danoOpcional) existe.danoOpcional = condicao.danoOpcional;
+        return;
+      }
+    }
+    this.condicoes.push(condicao);
+  }
+
+  processarCondicoesInicioTurno(): void {
+    for (let i = this.condicoes.length - 1; i >= 0; i--) {
+      const c = this.condicoes[i]!;
+      
+      if (c.nome === "Queimando" && c.danoOpcional) {
+        this.life -= c.danoOpcional;
+        console.log(chalk.redBright(`🔥 ${this.name} sofreu ${c.danoOpcional} de dano de queimadura.`));
+      } else if (c.nome === "Envenenado" && c.danoOpcional) {
+        if (this.life > 1) {
+          this.life = Math.max(1, this.life - c.danoOpcional);
+          console.log(chalk.greenBright(`☠️ ${this.name} sofreu ${c.danoOpcional} de dano de veneno.`));
+        } else {
+          console.log(chalk.greenBright(`☠️ O veneno corrói ${this.name}, mas ele resiste com 1 de vida.`));
+        }
+        if (c.stacks === undefined) c.stacks = 1;
+        else c.stacks += 1;
+      }
+
+      c.duracao -= 1;
+      if (c.duracao <= 0) {
+        if (c.nome !== "Caído") {
+          console.log(chalk.cyan(`A condição ${c.nome} de ${this.name} passou.`));
+        }
+        this.condicoes.splice(i, 1);
+      }
+    }
   }
 }
 

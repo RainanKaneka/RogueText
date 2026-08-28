@@ -1,5 +1,6 @@
 import type { Habilidade, Raridade } from "./actions";
 import { mainCharacter } from "./mainCharacter";
+import { enemy } from "./enemies";
 import chalk from "chalk";
 
 export interface ActiveBuff {
@@ -12,7 +13,8 @@ export interface ActiveBuff {
 export interface IConsumivel {
   name: string;
   description: string;
-  usar: (jogador: mainCharacter) => ActiveBuff | void;
+  requiresTarget?: boolean;
+  usar: (jogador: mainCharacter, alvo?: enemy) => ActiveBuff | void;
 }
 
 export type ScalingGrade = "S" | "A" | "B" | "C" | "D" | "E";
@@ -135,6 +137,17 @@ export const listaArmas: Record<string, IWeapons> = {
     damage: 22,
     levelRequired: 1,
     scaling: { strength: "C", dexterity: "E", intelligence: "E" },
+    calcularDano(jogador) { return calcDano(this, jogador); },
+  },
+  "Adaga Venenosa": {
+    name: "Adaga Venenosa",
+    description: "Uma adaga revestida de toxinas letais. Tem chance de envenenar o alvo.",
+    habilidade: undefined,
+    raridade: "COMUM",
+    price: 500,
+    damage: 18,
+    levelRequired: 3,
+    scaling: { strength: "E", dexterity: "B", intelligence: "D" },
     calcularDano(jogador) { return calcDano(this, jogador); },
   },
   "Harpa Arcana": {
@@ -297,7 +310,7 @@ export const listaArmas: Record<string, IWeapons> = {
   // === ÉPICAS ===
   "Martelo de Guerra": {
     name: "Martelo de Guerra",
-    description: "Um martelo colossal. Escalonamento A em Força, destruidor nas mãos certas.",
+    description: "Um martelo colossal. Escalonamento A em Força e tem chance de derrubar os inimigos.",
     habilidade: undefined,
     raridade: "EPICA",
     price: 8500,
@@ -698,8 +711,8 @@ export const listaAcessorios: Record<string, IAcessorio> = {
     passiva: {
       nome: "Revigoração",
       descricao: "Cura 15 de vida (+2% DEF + 1% INT) por turno.",
-      aplicar: () => {},
-      remover: () => {},
+      aplicar: () => { },
+      remover: () => { },
       onTurn: (j) => {
         const curaExtraDef = Math.floor(j.defense * 0.02 * 15); // Wait, "aumenta em 2% a cada 1 ponto" means 2% of the base 15 heal, or just +2 flat?
         // "a cura aumenta em 2% a cada 1 ponto em defesa" = cura * (1 + DEF * 0.02)
@@ -721,8 +734,8 @@ export const listaAcessorios: Record<string, IAcessorio> = {
     passiva: {
       nome: "Pressão Gravitacional",
       descricao: "No início do turno, causa 20 + 4% da Vida Máxima em todos os inimigos.",
-      aplicar: () => {},
-      remover: () => {},
+      aplicar: () => { },
+      remover: () => { },
       onTurn: (j, inimigos) => {
         if (!inimigos || inimigos.length === 0) return;
         const dano = Math.floor(20 + (j.maxLife * 0.04));
@@ -748,6 +761,18 @@ export const listaConsumiveis: Record<string, IConsumivel> = {
       console.log(chalk.greenBright(`Você usou Poção de Cura e recuperou 20 de vida!`));
     }
   },
+  "Fogo Líquido": {
+    name: "Fogo Líquido",
+    description: "Frasco arremessável que incendeia o alvo, causando dano inicial e deixando-o queimando.",
+    requiresTarget: true,
+    usar: (jogador: mainCharacter, alvo?: enemy) => {
+      if (alvo) {
+        alvo.life -= 15;
+        console.log(chalk.bgRed.white.bold(`💥 Você atira o Fogo Líquido! O ${alvo.name} sofre 15 de dano mágico imediato!`));
+        alvo.adicionarCondicao({ nome: "Queimando", duracao: 2, danoOpcional: 15 });
+      }
+    }
+  },
   "Poção de Cura Gradual": {
     name: "Poção de Cura Gradual",
     description: "Recupera 10 pontos de vida por turno por 3 turnos",
@@ -767,13 +792,13 @@ export const listaConsumiveis: Record<string, IConsumivel> = {
     name: "Poção de Força",
     description: "Aumenta a força em 5 pontos por 5 turnos",
     usar: (jogador: mainCharacter) => {
-      jogador.attackPower += 5;
+      jogador.strength += 5;
       console.log(chalk.greenBright(`Você usou Poção de Força e ganhou 5 pontos de força!`));
       return {
         name: "Força Aumentada",
-        duration: 5,
+        duration: 4,
         onExpire: (j: mainCharacter) => {
-          j.attackPower -= 5;
+          j.strength -= 5;
           console.log(chalk.yellowBright(`[Efeito Acabou] O efeito da Poção de Força se esvaiu. -5 de força.`));
         }
       };

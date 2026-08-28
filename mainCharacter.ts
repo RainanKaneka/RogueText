@@ -3,6 +3,7 @@ import type { Habilidade, IAttack } from "./actions";
 import type { ActiveBuff, IWeapons, IArmadura, IAcessorio } from "./artefacts";
 import { listaArmas } from "./artefacts";
 import chalk from "chalk";
+import type { Condicao } from "./conditions";
 
 export class mainCharacter extends Attack {
   public life: number = 0;
@@ -36,10 +37,19 @@ export class mainCharacter extends Attack {
   public _armorPassivaAtiva?: string;
   /** Flag interna usada pela passiva 'Sangria' do Anel da Sangria */
   public _accessoryPassivaAtiva?: string;
+  public condicoes: Condicao[] = [];
 
-  // Taxa crítica deriva automaticamente da Destreza (2% por ponto de DEX)
+  // Taxa crítica deriva automaticamente da Destreza (2% por ponto de DEX) + bônus
+  public lifesteal: number = 0;
+  public bonusDanoFixo: number = 0;
+  public multDanoArma: number = 1.0;
+  public multDanoSkill: number = 1.0;
+  public danoSofridoMultiplier: number = 1.0;
+  public goldMultiplier: number = 1.0;
+  public bonusCritico: number = 0;
+
   get taxaCritica(): number {
-    return this.dexterity * 0.02;
+    return (this.dexterity * 0.02) + this.bonusCritico;
   }
 
   constructor(
@@ -88,7 +98,12 @@ export class mainCharacter extends Attack {
 
   // Retorna o dano físico considerando a arma equipada e seu escalonamento
   danoComArma(): number {
-    return this.equippedWeapon.calcularDano(this);
+    return Math.floor((this.equippedWeapon.calcularDano(this) + this.bonusDanoFixo) * this.multDanoArma);
+  }
+
+  // Aplica os bônus de pactos (Caniçal, Estudioso) para danos de Habilidades
+  calcularDanoSkill(baseDamage: number): number {
+    return Math.floor((baseDamage + this.bonusDanoFixo) * this.multDanoSkill);
   }
 
   /**
@@ -154,8 +169,9 @@ export class mainCharacter extends Attack {
 
   aplicarRouboDeVida(dano: number): number {
     let cura = 0;
-    if (this._accessoryPassivaAtiva === "Sangria") {
-      cura = Math.floor(dano * 0.10);
+    const lifestealPorcentagem = (this._accessoryPassivaAtiva === "Sangria" ? 0.10 : 0) + this.lifesteal;
+    if (lifestealPorcentagem > 0) {
+      cura = Math.floor(dano * lifestealPorcentagem);
       if (cura > 0) {
         this.life = Math.min(this.maxLife, this.life + cura);
       }
@@ -176,11 +192,11 @@ export class mainCharacter extends Attack {
 
       // Aumentos base de recursos por nível
       this.maxLife += 25 + (this.level * 3) + Math.floor(defCalc * 2);
-      this.life = this.maxLife;
+      this.life = Math.min(this.maxLife, this.life + Math.floor(this.maxLife * 0.3));
       this.maxEnergy += 10 + (this.level * 2) * (this.strength / 5);
-      this.maxMana += 10 + (this.level * 2) * (this.intelligence /5);
-      this.energy = this.maxEnergy;
-      this.mana = this.maxMana;
+      this.maxMana += 10 + (this.level * 2) * (this.intelligence / 5);
+      this.energy = Math.min(this.maxEnergy, this.energy + Math.floor(this.maxEnergy * 0.3));
+      this.mana = Math.min(this.maxMana, this.mana + Math.floor(this.maxMana * 0.3));
 
       // +1 ponto de atributo para o jogador alocar
       this.pontosDeAtributo += 1;
@@ -235,6 +251,52 @@ export class mainCharacter extends Attack {
     for (const acc of this.equippedAccessories) {
       if (acc.passiva?.onTurn) {
         acc.passiva.onTurn(this, inimigos);
+      }
+    }
+  }
+
+  adicionarCondicao(condicao: Condicao): void {
+    // Se for envenenado, verifica se já existe para adicionar stacks
+    if (condicao.nome === "Envenenado") {
+      const existe = this.condicoes.find(c => c.nome === "Envenenado");
+      if (existe) {
+        existe.duracao = Math.max(existe.duracao, condicao.duracao);
+        if (condicao.danoOpcional) existe.danoOpcional = condicao.danoOpcional;
+        // Não reseta stacks, mantém subindo a cada turno como o usuário pediu "passivamente"
+        return;
+      }
+    }
+    this.condicoes.push(condicao);
+  }
+
+  processarCondicoesInicioTurno(): void {
+    for (let i = this.condicoes.length - 1; i >= 0; i--) {
+      const c = this.condicoes[i]!;
+      
+      if (c.nome === "Queimando" && c.danoOpcional) {
+        this.life -= c.danoOpcional;
+        console.log(chalk.redBright(`🔥 Você sofreu ${c.danoOpcional} de dano de queimadura.`));
+        if (this.life <= 0) {
+          console.log(chalk.bgRed.white.bold(`Você sucumbiu às chamas.`));
+          // A morte será processada na view/controller principal
+        }
+      } else if (c.nome === "Envenenado" && c.danoOpcional) {
+        if (this.life > 1) {
+          this.life = Math.max(1, this.life - c.danoOpcional);
+          console.log(chalk.greenBright(`☠️ Você sofreu ${c.danoOpcional} de dano de veneno.`));
+        } else {
+          console.log(chalk.greenBright(`☠️ O veneno corrói você, mas você resiste com 1 de vida.`));
+        }
+        if (c.stacks === undefined) c.stacks = 1;
+        else c.stacks += 1; // Aumenta 5% de erro a cada turno
+      }
+
+      c.duracao -= 1;
+      if (c.duracao <= 0) {
+        if (c.nome !== "Caído") { // Caído é removido ao usar a ação Levantar
+          console.log(chalk.cyan(`A condição ${c.nome} passou.`));
+        }
+        this.condicoes.splice(i, 1);
       }
     }
   }

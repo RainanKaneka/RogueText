@@ -568,3 +568,13 @@ body {
   font-size: 0.9rem;
   margin: 0;
 }
+
+@keyframes fadeOutFuga {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.fleeing-enemy {
+  animation: fadeOutFuga 2s forwards;
+  pointer-events: none;
+}

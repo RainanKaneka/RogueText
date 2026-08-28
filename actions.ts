@@ -54,11 +54,11 @@ export class GolpeForte implements Habilidade {
     jogador.energy -= this.custoEnergia;
     const danoBase = jogador.danoComArma() * 1.5;
     const bonusStr = calcBonusAtributo(jogador.strength, 0.15);
-    let dano = Math.floor(danoBase + bonusStr);
-    
+    let dano = jogador.calcularDanoSkill(Math.floor(danoBase + bonusStr));
+
     let isCrit = false;
-    if (Math.random() <= jogador.criticalRate) {
-      dano = Math.floor(dano * jogador.criticalDamage);
+    if (Math.random() <= jogador.taxaCritica) {
+      dano = Math.floor(dano * 1.5);
       isCrit = true;
     }
 
@@ -67,6 +67,13 @@ export class GolpeForte implements Habilidade {
     let logMsg = `💪 Você acerta um GOLPE FORTE ${isCrit ? "CRÍTICO " : ""}no ${inimigos[alvo]!.name} causando ${dano} de dano! (Bônus STR: +${bonusStr})`;
     if (lifesteal > 0) logMsg += ` (Roubou ${lifesteal} vida)`;
     console.log(chalk.yellowBright(logMsg));
+
+    if (!inimigos[alvo]!.jaCaiu) {
+      inimigos[alvo]!.adicionarCondicao({ nome: "Caído", duracao: 1 });
+    } else {
+      console.log(chalk.gray(`O inimigo ${inimigos[alvo]!.name} já caiu antes e evitou ser derrubado novamente.`));
+    }
+
     return true;
   }
 }
@@ -86,7 +93,7 @@ export class BolaDeFogo implements Habilidade {
     jogador.mana -= this.custoMana;
     const danoBase = 15;
     const bonusInt = calcBonusAtributo(jogador.intelligence, 0.12);
-    const danoTotal = danoBase + bonusInt;
+    const danoTotal = jogador.calcularDanoSkill(danoBase + bonusInt);
     console.log(chalk.bgRed.white.bold(`🔥 Você conjura uma Bola de Fogo! (Bônus INT: +${bonusInt})`));
     for (let inimigo of inimigos) {
       if (inimigo.life > 0) {
@@ -95,6 +102,11 @@ export class BolaDeFogo implements Habilidade {
         let msg = `O ${inimigo.name} sofreu ${danoTotal} de dano mágico!`;
         if (lifesteal > 0) msg += ` (Roubou ${lifesteal} vida)`;
         console.log(msg);
+
+        // Aplica Queimando
+        if (inimigo.life > 0) {
+          inimigo.adicionarCondicao({ nome: "Queimando", duracao: 2, danoOpcional: Math.floor(danoTotal * 0.3) });
+        }
       }
     }
     return true;
@@ -130,11 +142,11 @@ export class PosturaDefensiva implements Habilidade {
       onExpire: (jog: mainCharacter) => {
         jog.defense -= bonusDef;
         jog.bloqueando = false;
-        console.log(chalk.yellow(`🛡️ A Postura Defensiva acabou. Defesa retornou ao normal.`));
+        console.log(chalk.yellow(`<img src="sprites/shield-icon.png" style="width:32px; height:32px; vertical-align:-6px;" alt="🛡️"> A Postura Defensiva acabou. Defesa retornou ao normal.`));
       }
     });
 
-    console.log(chalk.cyanBright(`🛡️ Postura defensiva assumida! +${bonusDef} de Defesa por 3 turnos. (Defesa atual: ${jogador.defense})`));
+    console.log(chalk.cyanBright(`<img src="sprites/shield-icon.png" style="width:32px; height:32px; vertical-align:-6px;" alt="🛡️"> Postura defensiva assumida! +${bonusDef} de Defesa por 3 turnos. (Defesa atual: ${jogador.defense})`));
     return true;
   }
 }
@@ -163,10 +175,10 @@ export class Cura implements Habilidade {
 
 export class DrenarVida implements Habilidade {
   nome = "Drenar Vida";
-  descricao = "Usa 40 Mana. Dano (escala STR) e cura (escala INT).";
+  descricao = "Usa 80 Mana. Dano (escala STR) e cura (escala INT).";
   tipo = "ATIVA" as const;
   raridade = "EPICA" as const;
-  custoMana = 40;
+  custoMana = 80;
   usar(jogador: mainCharacter, inimigos: enemy[], alvo: number): boolean {
     if (jogador.mana < this.custoMana) {
       console.log(chalk.blue(`Você não tem Mana suficiente! (Necessário: ${this.custoMana})`));
@@ -174,7 +186,7 @@ export class DrenarVida implements Habilidade {
     }
     jogador.mana -= this.custoMana;
     const bonusStr = calcBonusAtributo(jogador.strength, 0.12);
-    const dano = Math.floor(jogador.danoComArma() * 1.5 + bonusStr);
+    const dano = jogador.calcularDanoSkill(Math.floor(jogador.danoComArma() * 1.5 + bonusStr));
     const bonusInt = calcBonusAtributo(jogador.intelligence, 0.10);
     const cura = Math.floor(dano / 2 + bonusInt);
     inimigos[alvo]!.life -= dano;
@@ -199,7 +211,7 @@ export class FuriaBerserker implements Habilidade {
     jogador.energy -= this.custoEnergia;
     const bonusStr = Math.max(1, Math.floor(jogador.strength * 0.5));
     jogador.strength += bonusStr;
-    
+
     jogador.activeBuffs.push({
       name: "Fúria Berserker",
       duration: 3,
@@ -251,7 +263,7 @@ export class Velocidade implements Habilidade {
         console.log(chalk.yellowBright("[Velocidade] O efeito de Velocidade se encerrou."));
       }
     });
-    const msg = jogador.classe === "Keth" 
+    const msg = jogador.classe === "Keth"
       ? "💨 Velocidade ativada! Janela de Parry aumentada para todo o combate!"
       : "💨 Velocidade ativada! Janela de Parry aumentada por 3 turnos!";
     console.log(chalk.cyanBright(msg));
@@ -272,7 +284,7 @@ export class CortesFan implements Habilidade {
     }
     jogador.energy -= this.custoEnergia;
     const bonusDex = calcBonusAtributo(jogador.dexterity, 0.10);
-    const danoPorCorte = Math.floor((jogador.danoComArma() / 2) + bonusDex);
+    const danoPorCorte = jogador.calcularDanoSkill(Math.floor((jogador.danoComArma() / 2) + bonusDex));
     let log = `👻 Cortes Fantasma! 3 cortes de ${danoPorCorte} dano cada (Bônus DEX: +${bonusDex})`;
     for (let i = 0; i < 3; i++) {
       let ls = 0;
@@ -287,7 +299,7 @@ export class CortesFan implements Habilidade {
         inimigos[segundoAlvo]!.life -= danoPorCorte;
         ls += jogador.aplicarRouboDeVida(danoPorCorte);
       }
-      if (ls > 0) log += `\n (Corte ${i+1} curou ${ls} vida!)`;
+      if (ls > 0) log += `\n (Corte ${i + 1} curou ${ls} vida!)`;
     }
     console.log(chalk.cyanBright(log));
     return true;
@@ -344,7 +356,7 @@ export class CancaoEnlouquecedora implements Habilidade {
 
     if (vivos.length === 1) {
       // Só um inimigo: ataca a si mesmo
-      const dano = Math.floor(vivos[0]!.attackPower * multiplicador);
+      const dano = jogador.calcularDanoSkill(Math.floor(vivos[0]!.attackPower * multiplicador));
       vivos[0]!.life -= dano;
       const ls = jogador.aplicarRouboDeVida(dano);
       log += `\n${vivos[0]!.name} ataca a si mesmo! (${dano} de dano)` + (ls > 0 ? ` (Roubou ${ls} vida)` : '');
@@ -353,7 +365,7 @@ export class CancaoEnlouquecedora implements Habilidade {
       for (let i = 0; i < vivos.length; i++) {
         const atacante = vivos[i]!;
         const alvo = vivos[(i + 1) % vivos.length]!;
-        const dano = Math.floor(atacante.attackPower * multiplicador);
+        const dano = jogador.calcularDanoSkill(Math.floor(atacante.attackPower * multiplicador));
         alvo.life -= dano;
         const ls = jogador.aplicarRouboDeVida(dano);
         log += `\n${atacante.name} ataca ${alvo.name}! (${dano} de dano)` + (ls > 0 ? ` (Roubou ${ls} vida)` : '');
@@ -418,7 +430,7 @@ export class RajadaMistica implements Habilidade {
   custoMana = 0;
   usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean {
     // A lógica de ativação e seleção de alvo é processada no Controller.ts
-    return true; 
+    return true;
   }
 }
 
@@ -429,6 +441,115 @@ export class VelocidadeSuperior implements Habilidade {
   raridade = "UNICA" as const;
   classeExclusiva = "Keth";
   usar(_jogador: mainCharacter, _inimigos: enemy[], _alvo: number): boolean { return true; }
+}
+
+export class Relampago implements Habilidade {
+  nome = "Relâmpago";
+  descricao = "Usa 150 Mana. Dano massivo no alvo. Pode encadear em mais 2 alvos aleatórios. Paralisa todos os atingidos!";
+  tipo = "ATIVA" as const;
+  custoMana = 150;
+  raridade: Raridade = "LENDARIA";
+
+  usar(jogador: mainCharacter, inimigos: enemy[], alvoAtual: number): boolean {
+    if (jogador.mana < this.custoMana) {
+      console.log(chalk.blue(`Você não tem Mana suficiente! (Necessário: ${this.custoMana})`));
+      return false;
+    }
+    jogador.mana -= this.custoMana;
+    const danoBase = 60;
+    const bonusInt = calcBonusAtributo(jogador.intelligence, 0.25);
+    const danoTotal = jogador.calcularDanoSkill(danoBase + bonusInt);
+
+    console.log(chalk.bgBlue.white.bold(`⚡ Você conjura um Relâmpago colossal! (Bônus INT: +${bonusInt})`));
+
+    // Atinge o primeiro alvo
+    let alvoPrincipal = inimigos[alvoAtual]!;
+    alvoPrincipal.life -= danoTotal;
+    console.log(chalk.blueBright(`⚡ O relâmpago atinge ${alvoPrincipal.name} causando ${danoTotal} de dano mágico!`));
+    alvoPrincipal.adicionarCondicao({ nome: "Paralisado", duracao: 1 });
+    jogador.aplicarRouboDeVida(danoTotal);
+
+    // Chance de 50% de encadear no segundo alvo
+    const vivos = inimigos.filter((ini, idx) => ini.life > 0 && idx !== alvoAtual);
+    if (vivos.length > 0 && Math.random() <= 0.5) {
+      const segundoAlvo = vivos[Math.floor(Math.random() * vivos.length)]!;
+      const danoSegundo = Math.floor(danoTotal * 0.5);
+      segundoAlvo.life -= danoSegundo;
+      console.log(chalk.blueBright(`⚡ O relâmpago encadeia em ${segundoAlvo.name} causando ${danoSegundo} de dano mágico!`));
+      segundoAlvo.adicionarCondicao({ nome: "Paralisado", duracao: 1 });
+      jogador.aplicarRouboDeVida(danoSegundo);
+
+      // Chance de 20% de encadear no terceiro alvo (a partir do segundo)
+      const vivosTerceiro = vivos.filter(ini => ini.life > 0 && ini !== segundoAlvo);
+      if (vivosTerceiro.length > 0 && Math.random() <= 0.2) {
+        const terceiroAlvo = vivosTerceiro[Math.floor(Math.random() * vivosTerceiro.length)]!;
+        const danoTerceiro = Math.floor(danoTotal * 0.25);
+        terceiroAlvo.life -= danoTerceiro;
+        console.log(chalk.blueBright(`⚡ Um resíduo do relâmpago atinge ${terceiroAlvo.name} causando ${danoTerceiro} de dano mágico!`));
+        terceiroAlvo.adicionarCondicao({ nome: "Paralisado", duracao: 1 });
+        jogador.aplicarRouboDeVida(danoTerceiro);
+      }
+    }
+
+    return true;
+  }
+}
+
+export class Nevasca implements Habilidade {
+  nome = "Nevasca";
+  descricao = "Usa 100 Mana. Cria uma nevasca que causa dano contínuo e tem chance progressiva de paralisar os inimigos todo turno.";
+  tipo = "ATIVA" as const;
+  custoMana = 100;
+  raridade: Raridade = "EPICA";
+
+  usar(jogador: mainCharacter, inimigos: enemy[], alvoAtual: number): boolean {
+    if (jogador.mana < this.custoMana) {
+      console.log(chalk.blue(`Você não tem Mana suficiente! (Necessário: ${this.custoMana})`));
+      return false;
+    }
+
+    if (jogador.activeBuffs.some(b => b.name === "Nevasca")) {
+      console.log(chalk.blue("Uma nevasca já está ativa!"));
+      return false;
+    }
+
+    jogador.mana -= this.custoMana;
+    console.log(chalk.bgCyan.white.bold(`❄️ Uma Nevasca furiosa encobre a sala!`));
+
+    jogador.activeBuffs.push({
+      name: "Nevasca",
+      duration: 100, // Serve apenas para durar o combate todo, usaremos o valor descontado para contar turnos passados
+      onExpire: () => { } // Os efeitos ocorrem no Controller.ts -> faseAtaqueInimigos()
+    });
+
+    return true;
+  }
+}
+
+export class GritoDeGuerra implements Habilidade {
+  nome = "Grito de Guerra";
+  descricao = "Usa 50 Energia. Aplica Amedrontado em todos os inimigos normais na sala.";
+  tipo = "ATIVA" as const;
+  custoEnergia = 50;
+  raridade: Raridade = "RARA";
+
+  usar(jogador: mainCharacter, inimigos: enemy[], alvoAtual: number): boolean {
+    if (jogador.energy < this.custoEnergia) {
+      console.log(chalk.blue(`Você não tem Energia suficiente! (Necessário: ${this.custoEnergia})`));
+      return false;
+    }
+    jogador.energy -= this.custoEnergia;
+
+    console.log(chalk.bgRed.white.bold(`💢 VOCÊ SOLTA UM GRITO DE GUERRA ENSURDECEDOR!`));
+
+    for (let ini of inimigos) {
+      if (ini.life > 0 && !ini.isBoss) {
+        ini.adicionarCondicao({ nome: "Amedrontado", duracao: 2 });
+      }
+    }
+
+    return true;
+  }
 }
 
 export const TODAS_HABILIDADES: Habilidade[] = [
@@ -450,6 +571,9 @@ export const TODAS_HABILIDADES: Habilidade[] = [
   new SorteDePrincipiante(),
   new RajadaMistica(),
   new VelocidadeSuperior(),
+  new Relampago(),
+  new Nevasca(),
+  new GritoDeGuerra(),
 ];
 
 // 5. O ALGORITMO DE SORTEIO (GACHA)
