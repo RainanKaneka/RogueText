@@ -64,7 +64,7 @@ function getBossesPorAndar(): { [key: number]: string[] } {
 }
 
 // Estado da Aplicação
-type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS" | "FAST_TRAVEL" | "ESTATISTICAS_RUN" | "CONFIRMAR_VENDA" | "EVENTO_BOSS" | "EVENTO_RECOMPENSA" | "ESCOLHA_SALA" | "EVENTO_FOGUEIRA" | "EVENTO_ALTAR" | "EVENTO_PORTAL" | "EXPEDICOES";
+type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS" | "FAST_TRAVEL" | "ESTATISTICAS_RUN" | "CONFIRMAR_VENDA" | "EVENTO_BOSS" | "EVENTO_RECOMPENSA" | "ESCOLHA_SALA" | "EVENTO_FOGUEIRA" | "EVENTO_ALTAR" | "EVENTO_PORTAL" | "EXPEDICOES" | "RESUMO_BATALHA" | "LEVEL_UP_SCREEN";
 
 let estadoAtual: GameState = "LOBBY";
 let jogador: mainCharacter;
@@ -960,14 +960,19 @@ function render() {
     const disponiveis = getClassesDisponiveis(save);
     const bloqueadas = getClassesBloqueadas(save);
 
-    let html = `<h2>Selecione sua Classe</h2><div class="action-buttons">`;
+    let html = `
+      <div style="max-width: 900px; margin: 0 auto; padding-top: 10vh; text-align: center;">
+        <h2 style="font-size: 2rem; margin-bottom: 30px; color: #fff;">Selecione sua Classe</h2>
+        <div class="action-buttons" style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; text-align: left;">
+    `;
     disponiveis.forEach((classe, idx) => {
-      html += `<button class="btn-action" id="btn-classe-${idx}">
-        <span class="key-hint">[${idx + 1}]</span> ${classe.nome}<br>
-        <small class="text-gray">${classe.descricao}</small>
+      html += `<button class="btn-action" id="btn-classe-${idx}" style="flex: 1; min-width: 250px; padding: 20px; cursor: pointer; transition: all 0.2s;">
+        <span class="key-hint" style="color: #ffd43b;">[${idx + 1}]</span> 
+        <span style="font-size: 1.2rem; color: #fff;">${classe.nome}</span><br>
+        <small class="text-gray" style="display: block; margin-top: 10px; font-size: 0.9rem; line-height: 1.4;">${classe.descricao}</small>
       </button>`;
     });
-    html += `</div>`;
+    html += `</div></div>`;
 
     app.innerHTML = html;
 
@@ -1217,246 +1222,277 @@ function render() {
     return;
   }
 
-  // HUD (Exploração, Batalha, Level Up)
-  let htmlHUD = "";
-  const isEventScreen = ["EVENTO_BOSS", "EVENTO_RECOMPENSA", "ESCOLHA_SALA", "EVENTO_FOGUEIRA", "EVENTO_ALTAR", "EVENTO_PORTAL", "RESUMO_BATALHA", "LEVEL_UP_SCREEN"].includes(estadoAtual);
+  // --- SIDEBAR (HUD Permanente) ---
+  const jogadorVidaPerc = Math.max(0, (jogador.life / jogador.maxLife) * 100);
+  const prevJogadorVidaPerc = (jogador as any)._lastRenderedVidaPerc ?? jogadorVidaPerc;
+  (jogador as any)._lastRenderedVidaPerc = jogadorVidaPerc;
+  
+  const jogadorTomouDano = (jogador as any)._lastRenderedLife !== undefined && jogador.life < (jogador as any)._lastRenderedLife;
+  (jogador as any)._lastRenderedLife = jogador.life;
 
-  if (!isEventScreen) {
-    htmlHUD += `
-      <div class="hud-container">
-      <div class="hud-row">
-        <span class="hud-title">${jogador.name} ${jogador.classe ? `[${jogador.classe}]` : ""} - Nv. ${jogador.level} <span style="font-size: 0.9em; margin-left: 5px; vertical-align: -1px;">${getConditionIcons(jogador.condicoes)}</span></span>
-        <span class="text-yellow">XP: ${jogador.experience}/${jogador.experienceToNextLevel} | Ouro: ${jogador.gold}G | Andar ${andarAtual} (Sala ${salaAtual})</span>
-      </div>`;
+  const jHpClass = jogadorTomouDano ? "health-drop animate-width" : "animate-width";
+  const jHpShake = jogadorTomouDano ? "shake-hit" : "";
+  
+  const jogadorManaPerc = Math.max(0, (jogador.mana / jogador.maxMana) * 100);
+  const prevJogadorManaPerc = (jogador as any)._lastRenderedManaPerc ?? jogadorManaPerc;
+  (jogador as any)._lastRenderedManaPerc = jogadorManaPerc;
 
-    const jogadorVidaPerc = Math.max(0, (jogador.life / jogador.maxLife) * 100);
-    const oldJogadorVidaPerc = (jogador as any)._lastRenderedLife !== undefined ? Math.max(0, ((jogador as any)._lastRenderedLife / jogador.maxLife) * 100) : jogadorVidaPerc;
-    const jogadorTomouDano = (jogador as any)._lastRenderedLife !== undefined && jogador.life < (jogador as any)._lastRenderedLife;
-    (jogador as any)._lastRenderedLife = jogador.life;
+  const jogadorEnergyPerc = Math.max(0, (jogador.energy / jogador.maxEnergy) * 100);
+  const prevJogadorEnergyPerc = (jogador as any)._lastRenderedEnergyPerc ?? jogadorEnergyPerc;
+  (jogador as any)._lastRenderedEnergyPerc = jogadorEnergyPerc;
 
-    const jHpClass = jogadorTomouDano ? "health-drop" : "";
-    const jHpShake = jogadorTomouDano ? "shake-hit" : "";
-
-    htmlHUD += `
-      <div class="hud-row" style="gap: 15px;">
-        <div class="bar-container ${jHpShake}">
-          <div class="bar-fill ${jHpClass}" style="background-color: ${getConditionBarColor(jogador.condicoes, "#ff6b6b")}; --old-width: ${oldJogadorVidaPerc}%; --new-width: ${jogadorVidaPerc}%; width: ${jogadorVidaPerc}%"></div>
-          <div class="bar-text">❤️ ${Math.round(Math.max(0, Math.floor(jogador.life)))}/${Math.round(jogador.maxLife)}</div>
+  let sidebarHTML = `
+    <div class="sidebar-panel">
+      <div class="vertical-bars-container">
+        <div class="mp-hud-container mp-vertical">
+          <div class="mp-hud-fill-wrapper">
+            <div class="mp-hud-fill bg-blue animate-width" style="width: ${jogadorManaPerc}%; --prev-width: ${prevJogadorManaPerc}%; --target-width: ${jogadorManaPerc}%;"></div>
+          </div>
+          <img src="sprites/mana-bar.png" class="mp-hud-frame">
         </div>
-        <div class="bar-container">
-          <div class="bar-fill bg-blue" style="width: ${Math.max(0, (jogador.mana / jogador.maxMana) * 100)}%"></div>
-          <div class="bar-text">💧 ${Math.round(Math.max(0, Math.floor(jogador.mana)))}/${Math.round(jogador.maxMana)}</div>
+        <div class="hp-hud-container hp-vertical ${jHpShake}">
+          <div class="hp-hud-fill-wrapper">
+            <div class="hp-hud-fill ${jHpClass}" style="background-color: ${getConditionBarColor(jogador.condicoes, "#ff6b6b")}; width: ${jogadorVidaPerc}%; --prev-width: ${prevJogadorVidaPerc}%; --target-width: ${jogadorVidaPerc}%;"></div>
+          </div>
+          <img src="sprites/hp-bar.png" class="hp-hud-frame">
         </div>
-        <div class="bar-container">
-          <div class="bar-fill bg-yellow" style="width: ${Math.max(0, (jogador.energy / jogador.maxEnergy) * 100)}%"></div>
-          <div class="bar-text">⚡ ${Math.round(Math.max(0, Math.floor(jogador.energy)))}/${Math.round(jogador.maxEnergy)}</div>
+        <div class="ep-hud-container ep-vertical">
+          <div class="ep-hud-fill-wrapper">
+            <div class="ep-hud-fill bg-yellow animate-width" style="width: ${jogadorEnergyPerc}%; --prev-width: ${prevJogadorEnergyPerc}%; --target-width: ${jogadorEnergyPerc}%;"></div>
+          </div>
+          <img src="sprites/energy-bar.png" class="ep-hud-frame">
         </div>
       </div>
-
-      <div class="stats-grid" style="margin-top:10px;">
-        <span class="text-red">STR: ${jogador.strength}</span>
-        <span class="text-magenta">DEX: ${jogador.dexterity}</span>
-        <span class="text-blue">INT: ${jogador.intelligence}</span>
-        <span class="text-yellow">LUCK: ${jogador.luck}</span>
-        <span class="text-cyan">DEF: ${jogador.defense}</span>
+      <div style="display:flex; justify-content: space-around; font-size:0.85rem; color:#fff; text-shadow: 1px 1px 0 #000; margin-top: -20px; z-index: 10;">
+        <span style="color:#74c0fc;">💧 ${Math.round(jogador.mana)}/${Math.round(jogador.maxMana)}</span>
+        <span style="color:#ff6b6b;">❤️ ${Math.round(jogador.life)}/${Math.round(jogador.maxLife)}</span>
+        <span style="color:#fcc419;">⚡ ${Math.round(jogador.energy)}/${Math.round(jogador.maxEnergy)}</span>
       </div>
-      <div class="stats-grid" style="margin-top:5px;">
-        <span class="text-gray has-tooltip" style="cursor:help;">Arma: ${jogador.equippedWeapon?.name || "Nenhuma"} (${jogador.danoComArma()} Dano)
-          ${jogador.equippedWeapon ? getWeaponTooltip(jogador.equippedWeapon) : ""}
-        </span>
-        <span class="text-gray">Crítico: ${(jogador.taxaCritica * 100).toFixed(0)}%</span>
+      
+      <div class="character-sheet-box">
+        <div class="char-info-row text-yellow">
+          <span>${jogador.name} ${jogador.classe ? `[${jogador.classe}]` : ""} - Nv. ${jogador.level}</span>
+          <span style="color:#c2255c;">XP: ${jogador.experience}/${jogador.experienceToNextLevel}</span>
+        </div>
+        <div class="char-info-row text-yellow" style="margin-top: -5px;">
+          <span>Gold: ${jogador.gold}</span>
+          <span style="color:#e03131;">Andar ${andarAtual} (Sala ${salaAtual})</span>
+        </div>
+        
+        <div class="char-stats-row" style="margin-top: 10px;">
+          <div class="char-stat-col"><span class="text-red">STR</span><span>${jogador.strength}</span></div>
+          <div class="char-stat-col"><span class="text-magenta">DEX</span><span>${jogador.dexterity}</span></div>
+          <div class="char-stat-col"><span class="text-blue">INT</span><span>${jogador.intelligence}</span></div>
+          <div class="char-stat-col"><span class="text-yellow">LUCK</span><span>${jogador.luck}</span></div>
+          <div class="char-stat-col"><span class="text-cyan">DEF</span><span>${jogador.defense}</span></div>
+        </div>
+        
+        <div class="char-equip-row" style="margin-top:10px;">
+          <img src="sprites/sword-icon.png" style="width:16px;height:16px;">
+          <span class="has-tooltip" style="cursor:help;">Arma: ${jogador.equippedWeapon?.name || "Nenhuma"} (${jogador.danoComArma()} dano)
+            ${jogador.equippedWeapon ? getWeaponTooltip(jogador.equippedWeapon) : ""}
+          </span>
+        </div>
+        <div class="char-equip-row">
+          <img src="sprites/shield-icon.png" style="width:16px;height:16px;">
+          <span>${jogador.equippedArmor?.name || "Sem Armadura"}</span>
+        </div>
+        <div class="char-equip-row">
+          <img src="sprites/acessory-icon.png" style="width:16px;height:16px;">
+          <span>${jogador.equippedAccessories.length > 0 ? jogador.equippedAccessories.map(a => a.name).join(", ") : "Sem Acessório"}</span>
+        </div>
+        ${jogador.condicoes.length > 0 ? `<div style="margin-top:5px;">${getConditionIcons(jogador.condicoes)}</div>` : ""}
+        ${jogador.skills.filter(s => s.tipo === "PASSIVA").length > 0 ? `
+        <div style="margin-top:8px; padding-top:6px; border-top: 1px solid #333;">
+          <span style="color:#888; font-size:0.85rem;">Passivas: </span>
+          ${jogador.skills.filter(s => s.tipo === "PASSIVA").map(s => {
+            const cor = s.raridade === "EPICA" ? "#cc5de8" : s.raridade === "LENDARIA" ? "#fcc419" : s.raridade === "RARA" ? "#339af0" : "#aaa";
+            return `<span style="color:${cor}; font-size:0.85rem; margin-right:10px;" title="${s.descricao}">✨ ${s.nome}</span>`;
+          }).join("")}
+        </div>` : ""}
       </div>
-      <div class="stats-grid" style="margin-top:4px;">
-        <span style="color:#74c0fc; display:flex; align-items:center;"><img src="sprites/shield-icon.png" style="width:32px; height:32px; margin-right:6px;" alt="🛡️"> ${jogador.equippedArmor?.name || "Sem Armadura"}</span>
-        <span style="color:#a9e34b; display:flex; align-items:center;"><img src="sprites/acessory-icon.png" style="width:32px; height:32px; margin-right:6px;" alt="💍"> ${jogador.equippedAccessories.length > 0 ? jogador.equippedAccessories.map(a => a.name).join(", ") : "Sem Acessório"}</span>
-      </div>
-      ${jogador.skills.filter(s => s.tipo === "PASSIVA").length > 0 ? `
-      <div style="margin-top:8px; padding-top:6px; border-top: 1px solid #333;">
-        <span style="color:#888; font-size:0.85rem;">Passivas: </span>
-        ${jogador.skills.filter(s => s.tipo === "PASSIVA").map(s => {
-      const cor = s.raridade === "EPICA" ? "#cc5de8" : s.raridade === "LENDARIA" ? "#fcc419" : s.raridade === "RARA" ? "#339af0" : "#aaa";
-      return `<span style="color:${cor}; font-size:0.85rem; margin-right:10px;" title="${s.descricao}">✨ ${s.nome}</span>`;
-    }).join("")}
-      </div>` : ""}
     </div>
   `;
 
-    if (estadoAtual === "BATALHA") {
-      htmlHUD += `<div class="hud-container" style="border-color: #c92a2a;">`;
-      inimigosAtuais.forEach((ini, idx) => {
-        const vidaAtual = Math.max(0, Math.floor(ini.life));
-        const porcentagemVida = Math.max(0, (ini.life / ini.maxLife) * 100);
-        const oldPorcentagemVida = (ini as any)._lastRenderedLife !== undefined ? Math.max(0, ((ini as any)._lastRenderedLife / ini.maxLife) * 100) : porcentagemVida;
-        const tomouDano = (ini as any)._lastRenderedLife !== undefined && ini.life < (ini as any)._lastRenderedLife;
-        (ini as any)._lastRenderedLife = ini.life;
+  // --- MAIN PANEL ---
+  let mainPanelHTML = `<div class="main-panel">`;
 
-        const hpClass = tomouDano ? "health-drop" : "";
-        const hpShake = tomouDano ? "shake-hit" : "";
+  // Título do Andar
+  let titleText = "Masmorra Antiga";
+  if (andarAtual > 1) titleText = "Profundezas da Masmorra"; // Lógica customizável depois
+  mainPanelHTML += `<div class="floor-title">${titleText}</div>`;
 
-        htmlHUD += `
-        <div class="hud-row">
-          <span class="text-red">[${idx + 1}] ${ini.name} <span style="font-size: 0.9em; margin-left: 5px; vertical-align: -1px;">${getConditionIcons(ini.condicoes)}</span></span>
+  mainPanelHTML += `<div class="main-content-box">`;
+
+  const isCombat = estadoAtual === "BATALHA";
+  mainPanelHTML += `<div class="action-box ${isCombat ? "combat" : ""}">`;
+
+  if (isCombat) {
+    mainPanelHTML += `<div class="event-title" style="font-size: 1.5rem; margin-top: 0;">Combate</div>`;
+    inimigosAtuais.forEach((ini, idx) => {
+      const vidaAtual = Math.max(0, Math.floor(ini.life));
+      const porcentagemVida = Math.max(0, (ini.life / ini.maxLife) * 100);
+      const prevPorcentagemVida = (ini as any)._lastRenderedVidaPerc ?? porcentagemVida;
+      (ini as any)._lastRenderedVidaPerc = porcentagemVida;
+
+      const tomouDano = (ini as any)._lastRenderedLife !== undefined && ini.life < (ini as any)._lastRenderedLife;
+      (ini as any)._lastRenderedLife = ini.life;
+
+      mainPanelHTML += `
+      <div class="enemy-health-row ${tomouDano ? 'shake-hit' : ''}">
+        <div class="enemy-name">(${idx + 1}) ${ini.name} <span style="font-size: 0.9em; margin-left: 5px; vertical-align: -1px;">${getConditionIcons(ini.condicoes)}</span></div>
+        <div class="enemy-bar-wrapper">
+          <div class="enemy-bar-fill ${tomouDano ? 'health-drop animate-width' : 'animate-width'}" style="background-color: ${getConditionBarColor(ini.condicoes, "#ff4b4b")}; width: ${porcentagemVida}%; --prev-width: ${prevPorcentagemVida}%; --target-width: ${porcentagemVida}%;"></div>
+          <div class="enemy-bar-text">${vidaAtual}/${ini.maxLife}</div>
         </div>
-        <div class="bar-container ${hpShake}" style="margin-bottom: 10px;">
-          <div class="bar-fill ${hpClass}" style="background-color: ${getConditionBarColor(ini.condicoes, "#ff6b6b")}; --old-width: ${oldPorcentagemVida}%; --new-width: ${porcentagemVida}%; width: ${porcentagemVida}%"></div>
-          <div class="bar-text">${vidaAtual}/${ini.maxLife}</div>
-        </div>
+      </div>
       `;
-      });
+    });
 
-      inimigosFugindo.forEach((ini) => {
-        htmlHUD += `
-        <div class="fleeing-enemy" style="margin-bottom: 10px;">
-          <div class="hud-row">
-            <span class="text-red" style="text-decoration: line-through;">[X] ${ini.name}</span>
-            <span style="color:#fcc419; margin-left: 10px; font-weight: bold;">(Fugiu de Medo!)</span>
-          </div>
-          <div class="bar-container">
-            <div class="bar-fill bg-red" style="width: 0%"></div>
-            <div class="bar-text" style="color: #fcc419;">FUGIU</div>
+    inimigosFugindo.forEach((ini) => {
+      mainPanelHTML += `
+      <div class="enemy-health-row" style="opacity: 0.5;">
+        <div class="enemy-name" style="text-decoration: line-through;">(X) ${ini.name} <span style="color:#fcc419; margin-left: 10px;">(Fugiu de Medo!)</span></div>
+        <div class="enemy-bar-wrapper">
+          <div class="enemy-bar-fill" style="width: 0%"></div>
+          <div class="enemy-bar-text" style="color: #fcc419;">FUGIU</div>
+        </div>
+      </div>
+      `;
+    });
+
+    if (aliadosAtuais.length > 0) {
+      mainPanelHTML += `<h4 style="color: #9c36b5; margin: 10px 0 5px 0;">Seus Aliados</h4>`;
+      aliadosAtuais.forEach((aliado, idx) => {
+        const vidaAtual = Math.max(0, Math.floor(aliado.life));
+        const porcentagemVida = Math.max(0, (aliado.life / aliado.maxLife) * 100);
+        const prevPorcentagemVida = (aliado as any)._lastRenderedVidaPerc ?? porcentagemVida;
+        (aliado as any)._lastRenderedVidaPerc = porcentagemVida;
+        
+        const tomouDano = (aliado as any)._lastRenderedLife !== undefined && aliado.life < (aliado as any)._lastRenderedLife;
+        (aliado as any)._lastRenderedLife = aliado.life;
+
+        mainPanelHTML += `
+        <div class="enemy-health-row ${tomouDano ? 'shake-hit' : ''}">
+          <div class="enemy-name" style="color: #9c36b5;">[Aliado] ${aliado.name} <span style="font-size: 0.9em; margin-left: 5px; vertical-align: -1px;">${getConditionIcons(aliado.condicoes)}</span></div>
+          <div class="enemy-bar-wrapper">
+            <div class="enemy-bar-fill ${tomouDano ? 'health-drop animate-width' : 'animate-width'}" style="background-color: #9c36b5; width: ${porcentagemVida}%; --prev-width: ${prevPorcentagemVida}%; --target-width: ${porcentagemVida}%;"></div>
+            <div class="enemy-bar-text">${vidaAtual}/${aliado.maxLife}</div>
           </div>
         </div>
-      `;
-      });
-      htmlHUD += `</div>`;
-
-      if (aliadosAtuais.length > 0) {
-        htmlHUD += `<div class="hud-container" style="border-color: #9c36b5; margin-top: 10px;">`;
-        htmlHUD += `<h4 style="color: #9c36b5; margin: 0 0 5px 0;">Seus Aliados (Mortos-Vivos)</h4>`;
-        aliadosAtuais.forEach((aliado, idx) => {
-          const vidaAtual = Math.max(0, Math.floor(aliado.life));
-          const porcentagemVida = Math.max(0, (aliado.life / aliado.maxLife) * 100);
-          const oldPorcentagemVida = (aliado as any)._lastRenderedLife !== undefined ? Math.max(0, ((aliado as any)._lastRenderedLife / aliado.maxLife) * 100) : porcentagemVida;
-          const tomouDano = (aliado as any)._lastRenderedLife !== undefined && aliado.life < (aliado as any)._lastRenderedLife;
-          (aliado as any)._lastRenderedLife = aliado.life;
-
-          const hpClass = tomouDano ? "health-drop" : "";
-          const hpShake = tomouDano ? "shake-hit" : "";
-
-          htmlHUD += `
-          <div class="hud-row">
-            <span style="color: #9c36b5;">[Aliado] ${aliado.name} (Dano: ${aliado.attackPower}) <span style="font-size: 0.9em; margin-left: 5px; vertical-align: -1px;">${getConditionIcons(aliado.condicoes)}</span></span>
-          </div>
-          <div class="bar-container ${hpShake}" style="margin-bottom: 5px;">
-            <div class="bar-fill ${hpClass}" style="background-color: ${getConditionBarColor(aliado.condicoes, "#9c36b5")}; --old-width: ${oldPorcentagemVida}%; --new-width: ${porcentagemVida}%; width: ${porcentagemVida}%"></div>
-            <div class="bar-text">${vidaAtual}/${aliado.maxLife}</div>
-          </div>
         `;
-        });
-        htmlHUD += `</div>`;
-      }
+      });
     }
-  }
+    
+    if (logMensagem) {
+      mainPanelHTML += `</div><div style="margin-bottom: 20px; font-size: 1.1rem; color: #ccc; text-align: center;">${logMensagem}</div>`;
+    } else {
+      mainPanelHTML += `</div>`;
+    }
 
-  if (estadoAtual === "RESUMO_BATALHA") {
-
-    // Contagem de inimigos derrotados
+  } else if (estadoAtual === "RESUMO_BATALHA") {
     const contagemInimigos = battleSummary.inimigosDerrotados.reduce((acc, curr) => {
       acc[curr] = (acc[curr] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
     let monstrosHTML = Object.entries(contagemInimigos).map(([nome, qtd]) => {
-      return `<li style="color: #ff6b6b; margin-bottom: 5px;">☠️ ${qtd}x ${nome}</li>`;
+      return `<li style="color: #ff6b6b; margin-bottom: 5px;">💀 ${qtd}x ${nome}</li>`;
     }).join("");
     if (monstrosHTML === "") monstrosHTML = `<li style="color: #888;">Nenhum inimigo derrotado.</li>`;
 
     let dropsHTML = battleSummary.drops.map(d => {
-      return `<li style="color: #a9e34b; margin-bottom: 5px;">🎒 ${d}</li>`;
+      return `<li style="color: #a9e34b; margin-bottom: 5px;">✨ ${d}</li>`;
     }).join("");
     if (dropsHTML === "") dropsHTML = `<li style="color: #888;">Nenhum material recebido.</li>`;
 
-    htmlHUD += `
-      <div class="event-screen-container">
-        <div class="event-title" style="color: #ffd43b;">Batalha Vencida!</div>
-        <div class="event-subtitle">Estatísticas do combate</div>
-        
-        <div style="display: flex; gap: 20px; justify-content: center; margin-top: 20px; text-align: left;">
-          <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid #444; flex: 1;">
-             <h3 style="color: #ccc; margin-top:0; border-bottom: 1px solid #555; padding-bottom: 5px;">Criaturas Derrotadas</h3>
-             <ul style="list-style: none; padding: 0; margin: 0;">${monstrosHTML}</ul>
-          </div>
-          
-          <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid #444; flex: 1;">
-             <h3 style="color: #ccc; margin-top:0; border-bottom: 1px solid #555; padding-bottom: 5px;">Ganhos</h3>
-             <ul style="list-style: none; padding: 0; margin: 0;">
-                ${dropsHTML}
-                <li style="color: #ffd43b; margin-top: 10px;">💰 +${battleSummary.ouroGanho} Ouro</li>
-                <li style="color: #4dabf7;">✨ +${battleSummary.xpGanho} XP</li>
-             </ul>
-          </div>
+    mainPanelHTML += `
+      <div class="event-title" style="color: #ffd43b; margin-top: 0;">Batalha Vencida!</div>
+      <div class="event-subtitle">Estatísticas do combate</div>
+      <div style="display: flex; gap: 20px; justify-content: center; margin-top: 20px; text-align: left;">
+        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid #444; flex: 1;">
+           <h3 style="color: #ccc; margin-top:0; border-bottom: 1px solid #555; padding-bottom: 5px;">Criaturas Derrotadas</h3>
+           <ul style="list-style: none; padding: 0; margin: 0;">${monstrosHTML}</ul>
+        </div>
+        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid #444; flex: 1;">
+           <h3 style="color: #ccc; margin-top:0; border-bottom: 1px solid #555; padding-bottom: 5px;">Ganhos</h3>
+           <ul style="list-style: none; padding: 0; margin: 0;">
+              ${dropsHTML}
+              <li style="color: #ffd43b; margin-top: 10px;">💰 +${battleSummary.ouroGanho} Ouro</li>
+              <li style="color: #4dabf7;">🔵 +${battleSummary.xpGanho} XP</li>
+           </ul>
         </div>
       </div>
     `;
+    mainPanelHTML += `</div>`; // Close action-box
   } else if (estadoAtual === "LEVEL_UP_SCREEN") {
-    htmlHUD += `
-      <div class="event-screen-container">
-        <img src="sprites/Rogue-Text-LevelUp-Icon.gif" class="event-level-up-icon" alt="Event Icon">
+    mainPanelHTML += `
+      <div style="text-align: center; margin-bottom: 20px;">
+        <img src="sprites/Rogue-Text-LevelUp-Icon.gif" class="event-level-up-icon" alt="Event Icon" style="width: 100px; height: 100px; image-rendering: pixelated; margin: 0 auto;">
         <div class="event-title">Você subiu de nível!</div>
         <div class="event-subtitle">
           Escolha suas recompensas:<br>
           <span style="color: #4dabf7;">${skillsPendenteDeEscolha} Habilidades Pendentes</span> | 
           <span style="color: #ffd43b;">${jogador.pontosDeAtributo} Pontos de Atributo</span>
         </div>
-        
-        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 15px; align-items: center;">
     `;
     opcoesAcao.forEach((opcao, idx) => {
-      htmlHUD += `
-        <div class="btn-action-container" style="width: 100%;">
-          <button class="btn-action" id="btn-acao-${idx}" style="width: 100%; text-align: left;">
-            <span class="key-hint">[${idx + 1}]</span> ${opcao.texto}
+      mainPanelHTML += `
+        <div class="btn-action-container" style="width: 80%;">
+          <button class="action-btn-styled" id="btn-acao-${idx}" style="width: 100%; text-align: left; padding: 15px; font-size: 1.1rem; border: 1px solid #555; background: #222; color: #fff;">
+            <span class="key-hint" style="color: #a9e34b; margin-right: 10px;">(${idx + 1})</span> ${opcao.texto}
           </button>
           ${opcao.descricao ? `<div class="btn-tooltip">${opcao.descricao}</div>` : ""}
         </div>
       `;
     });
-    htmlHUD += `
-        </div>
-      </div>
-    `;
-  } else if (isEventScreen) {
-    let tituloEvento = "";
-    let subtituloEvento = "";
-    let iconeEvento = "";
-
-    if (estadoAtual === "EVENTO_BOSS") {
-      tituloEvento = "Cuidado!";
-      subtituloEvento = "Uma presença esmagadora se aproxima...";
-      iconeEvento = "sprites/boss-sprite.png";
-    } else if (estadoAtual === "EVENTO_RECOMPENSA") {
-      tituloEvento = "Recompensa!";
-      subtituloEvento = "Você encontrou algo interessante no fim da sala.";
-    }
-
-    htmlHUD += `
-      <div class="event-screen-container">
-        ${iconeEvento ? `<img src="${iconeEvento}" class="event-level-up-icon" alt="Event Icon">` : ""}
-        <div class="event-title">${tituloEvento}</div>
-        <div class="event-subtitle">${subtituloEvento}</div>
-        <div class="action-log" style="background: transparent; border: none; font-size: 1.1rem; padding: 0;">${logMensagem}</div>
-      </div>
-    `;
+    mainPanelHTML += `</div>`;
+    mainPanelHTML += `</div>`; // Close action-box
   } else {
-    // Log de Ação (Apenas se não for evento)
-    htmlHUD += `<div class="action-log">${logMensagem}</div>`;
+    // Normal Log / Events
+    if (["EVENTO_BOSS", "EVENTO_RECOMPENSA", "ESCOLHA_SALA", "EVENTO_FOGUEIRA", "EVENTO_ALTAR", "EVENTO_PORTAL"].includes(estadoAtual)) {
+       let tituloEvento = "";
+       let subtituloEvento = "";
+       let iconeEvento = "";
+       if (estadoAtual === "EVENTO_BOSS") {
+         tituloEvento = "Cuidado!"; subtituloEvento = "Uma presença esmagadora se aproxima..."; iconeEvento = "sprites/boss-sprite.png";
+       } else if (estadoAtual === "EVENTO_RECOMPENSA") {
+         tituloEvento = "Recompensa!"; subtituloEvento = "Você encontrou algo interessante.";
+       }
+       if (iconeEvento) {
+         mainPanelHTML += `<div style="text-align: center;"><img src="${iconeEvento}" class="event-level-up-icon" alt="Event Icon"></div>`;
+       }
+       if (tituloEvento) {
+         mainPanelHTML += `<div class="event-title" style="margin-top: 0;">${tituloEvento}</div><div class="event-subtitle">${subtituloEvento}</div>`;
+       }
+    }
+    
+    if (logMensagem) {
+      mainPanelHTML += `</div><div style="font-size: 1.1rem; line-height: 1.5; color: #ddd; text-align: center; margin-bottom: 20px;">${logMensagem}</div>`;
+    } else {
+      mainPanelHTML += `</div>`;
+    }
   }
 
-  // Botões de Ação
+  // Buttons rendering (if not LEVEL_UP_SCREEN, which has its own layout)
   if (estadoAtual !== "LEVEL_UP_SCREEN") {
-    htmlHUD += `<div class="action-buttons">`;
+    mainPanelHTML += `<div class="action-buttons-container">`;
     opcoesAcao.forEach((opcao, idx) => {
-      htmlHUD += `<div class="btn-action-container">
-        <button class="btn-action" id="btn-acao-${idx}">
-          <span class="key-hint">[${idx + 1}]</span> ${opcao.texto}
+      mainPanelHTML += `<div class="btn-action-container">
+        <button class="action-btn-styled" id="btn-acao-${idx}">
+          <span class="key-hint" style="color: #a9e34b; margin-right: 5px;">(${idx + 1})</span> ${opcao.texto}
         </button>
         ${opcao.descricao ? `<div class="btn-tooltip">${opcao.descricao}</div>` : ""}
       </div>`;
     });
-    htmlHUD += `</div>`;
+    mainPanelHTML += `</div>`;
   }
 
-  app.innerHTML = htmlHUD;
+  mainPanelHTML += `</div>`; // Close main-content-box
+
+  app.innerHTML = `<div class="game-layout">${sidebarHTML}${mainPanelHTML}</div>`;
 
   // Event Listeners
   opcoesAcao.forEach((opcao, idx) => {
