@@ -162,7 +162,7 @@ body {
   border: 1px solid #555;
   padding: 12px;
   font-family: 'Geist Pixel', monospace;
-  font-size: 1rem;
+  font-size: 1.2rem;
   cursor: pointer;
   text-align: left;
 }
@@ -570,8 +570,13 @@ body {
 }
 
 @keyframes fadeOutFuga {
-  0% { opacity: 1; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
 }
 
 .fleeing-enemy {

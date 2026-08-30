@@ -7,6 +7,7 @@ import { lerSave, salvarSave, atualizarAndarMax, adicionarGold, gastarGold, adic
 import { rolarDrops } from "./drops.js";
 import { initMusic, playMusic, playSfx, updateHeartbeat, setMusicVolume, setSfxVolume, musicVolume, sfxVolume } from "./music.js";
 import { showParryBar, setParryWindowBonus, parryStreak } from "./parry.js";
+import { type Expedition, type ExpeditionId, type RoomDescription, expeditions, getExpedicoesDesbloqueadas, getExpedicoesBloqueadas, getExpedition, sortearDescricaoSala } from "./expeditions.js";
 import chalk from "chalk";
 
 // Dados Globais
@@ -50,34 +51,20 @@ export function resetRunStats() {
   };
 }
 
-const monstrosPorAndar: { [key: number]: string[] } = {
-  1: ["Goblin", "Pequeno Troll", "Cão de Caça", "Morcego Raivoso"],
-  2: ["Homúnculo", "Esqueleto", "Zumbi", "Múmia"],
-  3: ["Diabrete", "Gárgula", "Armadura Viva"],
-  4: ["Lobo Sombrio", "Sacerdote Caído", "Quimera"],
-  5: ["Medusa", "Verme da Areia", "Sereia"],
-  6: ["Vampiro", "Necromante", "Aranha Gigante"],
-  7: ["Troll da Montanha", "Wendigo", "Minotauro"],
-  8: ["Golem de Pedra", "Ghoul", "Lich"],
-  9: ["Titã", "Banshee", "Demônio Menor"],
-  10: ["Abominação", "ArquLich", "Súcubo"],
-};
+// Expedição ativa (definida ao selecionar uma expedição)
+let expedicaoAtiva: Expedition = expeditions.ancient_dungeon;
+let descricoesUsadasNaRun: Set<string> = new Set();
 
-const bossesPorAndar: { [key: number]: string[] } = {
-  1: ["Dragão"],
-  2: ["Hidra"],
-  3: ["Serpente de Fogo"],
-  4: ["Servo das Sombras"],
-  5: ["Centopeia Anciã"],
-  6: ["Rei Perdido"],
-  7: ["Rainha da Praga"],
-  8: ["O Segundo Dedo"],
-  9: ["Dragão Negro"],
-  10: ["O Errante"]
-};
+// Lookup de monstros/bosses agora usa a expedição ativa
+function getMonstrosPorAndar(): { [key: number]: string[] } {
+  return expedicaoAtiva.monstrosPorAndar;
+}
+function getBossesPorAndar(): { [key: number]: string[] } {
+  return expedicaoAtiva.bossesPorAndar;
+}
 
 // Estado da Aplicação
-type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS" | "FAST_TRAVEL" | "ESTATISTICAS_RUN" | "CONFIRMAR_VENDA" | "EVENTO_BOSS" | "EVENTO_RECOMPENSA" | "ESCOLHA_SALA" | "EVENTO_FOGUEIRA" | "EVENTO_ALTAR" | "EVENTO_PORTAL";
+type GameState = "LOBBY" | "LOJA" | "FERREIRO" | "CLASSES" | "SELECAO_CLASSE" | "SELECAO_LOADOUT" | "EXPLORACAO" | "BATALHA" | "LEVEL_UP_SKILL" | "ALOCAR_ATRIBUTO" | "GAME_OVER" | "SOBRE" | "MOCHILA" | "MARCOS" | "FAST_TRAVEL" | "ESTATISTICAS_RUN" | "CONFIRMAR_VENDA" | "EVENTO_BOSS" | "EVENTO_RECOMPENSA" | "ESCOLHA_SALA" | "EVENTO_FOGUEIRA" | "EVENTO_ALTAR" | "EVENTO_PORTAL" | "EXPEDICOES";
 
 let estadoAtual: GameState = "LOBBY";
 let jogador: mainCharacter;
@@ -131,11 +118,11 @@ function simularRunAte(andarDestino: number): { xp: number, gold: number } {
     const factorATK = Math.pow(1.38, a - 1);
     const factorHP = Math.pow(1.45, a - 1);
 
-    const normais = monstrosPorAndar[a] || [];
+    const normais = getMonstrosPorAndar()[a] || [];
     if (normais.length > 0) {
       let sumXP = 0;
       normais.forEach(nome => {
-        const base = battleEnemies[nome as keyof typeof battleEnemies];
+        const base = battleEnemies[nome as keyof typeof battleEnemies] || { attackPower: 10, life: 30 };
         const scaledATK = Math.floor(base.attackPower * factorATK * multiplicadorDificuldade);
         const scaledHP = Math.floor(base.life * factorHP * multiplicadorDificuldade);
         sumXP += Math.floor((scaledATK * 2.5) + (scaledHP * 1.5));
@@ -144,11 +131,11 @@ function simularRunAte(andarDestino: number): { xp: number, gold: number } {
       xpTotal += avgXP * 18; // 9 salas x 2 monstros médios
     }
 
-    const bosses = bossesPorAndar[a] || [];
+    const bosses = getBossesPorAndar()[a] || [];
     if (bosses.length > 0) {
       let sumBossXP = 0;
       bosses.forEach(nome => {
-        const base = battleEnemies[nome as keyof typeof battleEnemies];
+        const base = battleEnemies[nome as keyof typeof battleEnemies] || { attackPower: 20, life: 60 };
         const scaledATK = Math.floor(base.attackPower * 1.3 * factorATK * multiplicadorDificuldade);
         const scaledHP = Math.floor(base.life * 2.0 * factorHP * multiplicadorDificuldade);
         sumBossXP += Math.floor((scaledATK * 2.5) + (scaledHP * 1.5));
@@ -163,6 +150,26 @@ function simularRunAte(andarDestino: number): { xp: number, gold: number } {
     }
   }
   return { xp: xpTotal, gold: goldTotal };
+}
+
+let battleSummary = {
+  inimigosDerrotados: [] as string[],
+  drops: [] as string[],
+  xpGanho: 0,
+  ouroGanho: 0,
+  armasEncontradas: [] as import('./artefacts').IWeapons[],
+  consumiveisEncontrados: [] as import('./artefacts').IConsumable[]
+};
+
+function resetBattleSummary() {
+  battleSummary = {
+    inimigosDerrotados: [],
+    drops: [],
+    xpGanho: 0,
+    ouroGanho: 0,
+    armasEncontradas: [],
+    consumiveisEncontrados: []
+  };
 }
 
 let typeWriterTimeout: any = null;
@@ -326,30 +333,89 @@ function render() {
 
   if (estadoAtual === "EXPEDICOES") {
     const save = lerSave();
-    const hardDesbloqueado = save.expedicoesConcluidas?.includes("EXP_1_NORMAL");
+    const concluidas = save.expedicoesConcluidas || [];
+    const desbloqueadas = getExpedicoesDesbloqueadas(concluidas);
+    const bloqueadas = getExpedicoesBloqueadas(concluidas);
 
-    let html = `<h2>Expedições</h2>
-      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom: 20px;">
-        <button class="btn-lobby" id="btn-exp1-normal">Expedição 1 (Normal)</button>
-        <button class="btn-lobby" id="btn-exp1-dificil" ${!hardDesbloqueado ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
-          Expedição 1 (Difícil) ${!hardDesbloqueado ? '<img src="sprites/lock-sprite.png" style="width:36px; height:36px; vertical-align:-10px; margin-left:4px;" alt="🔒">' : ''}
-        </button>
-      </div>
+    let html = `<h2>🗺️ Expedições</h2>
+      <div style="display:flex; flex-direction:column; gap:14px; margin-bottom: 20px;">`;
+
+    // Cards de expedições desbloqueadas
+    desbloqueadas.forEach(exp => {
+      const jaConcluiu = concluidas.includes(exp.id);
+      const badgeConcluida = jaConcluiu ? `<span style="color:#69db7c; font-size:0.8rem; margin-left:8px;">✅ Concluída</span>` : '';
+      const dificuldadeStars = '⭐'.repeat(Math.min(exp.dificuldadeBase, 5));
+
+      html += `
+        <div class="expedition-card" id="btn-exp-${exp.id}" style="
+          border: 2px solid ${exp.corTema};
+          border-radius: 8px;
+          padding: 14px;
+          cursor: pointer;
+          background: linear-gradient(135deg, rgba(0,0,0,0.85), rgba(0,0,0,0.6));
+          transition: all 0.2s ease;
+          position: relative;
+          overflow: hidden;
+        ">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+            <span style="font-size:1.6rem;">${exp.icone}</span>
+            <h3 style="margin:0; color:${exp.corTema}; font-size:1.1rem;">${exp.nome}</h3>
+            ${badgeConcluida}
+          </div>
+          <p style="margin:4px 0 8px; color:#bbb; font-size:0.85rem; line-height:1.4;">${exp.descricao}</p>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:#888;">
+            <span>Dificuldade: ${dificuldadeStars}</span>
+            <span>${exp.andares} andares</span>
+          </div>
+          <div style="position:absolute; top:0; left:0; width:100%; height:3px; background:${exp.corTema};"></div>
+        </div>`;
+    });
+
+    // Cards de expedições bloqueadas
+    bloqueadas.forEach(exp => {
+      html += `
+        <div style="
+          border: 2px solid #333;
+          border-radius: 8px;
+          padding: 14px;
+          opacity: 0.45;
+          cursor: not-allowed;
+          background: rgba(0,0,0,0.7);
+        ">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+            <span style="font-size:1.6rem;">🔒</span>
+            <h3 style="margin:0; color:#555; font-size:1.1rem;">???</h3>
+          </div>
+          <p style="margin:4px 0; color:#555; font-size:0.85rem;">Complete a Masmorra Antiga para desbloquear.</p>
+        </div>`;
+    });
+
+    html += `</div>
       <button class="btn-lobby" style="background:#555;" id="btn-expedicoes-voltar">Voltar</button>
     `;
     app.innerHTML = html;
 
-    document.getElementById("btn-exp1-normal")!.onclick = () => {
-      multiplicadorDificuldade = 1.0;
-      iniciarNovaRun();
-    };
+    // Bind click events para cada expedição desbloqueada
+    desbloqueadas.forEach(exp => {
+      const btn = document.getElementById(`btn-exp-${exp.id}`);
+      if (btn) {
+        btn.onmouseenter = () => {
+          btn.style.transform = "scale(1.02)";
+          btn.style.boxShadow = `0 0 15px ${exp.corTema}44`;
+          playSfx("hover");
+        };
+        btn.onmouseleave = () => {
+          btn.style.transform = "scale(1)";
+          btn.style.boxShadow = "none";
+        };
+        btn.onclick = () => {
+          expedicaoAtiva = exp;
+          multiplicadorDificuldade = 1.0;
+          iniciarNovaRun();
+        };
+      }
+    });
 
-    if (hardDesbloqueado) {
-      document.getElementById("btn-exp1-dificil")!.onclick = () => {
-        multiplicadorDificuldade = 1.5;
-        iniciarNovaRun();
-      };
-    }
     document.getElementById("btn-expedicoes-voltar")!.onclick = () => {
       estadoAtual = "LOBBY";
       render();
@@ -1153,7 +1219,7 @@ function render() {
 
   // HUD (Exploração, Batalha, Level Up)
   let htmlHUD = "";
-  const isEventScreen = ["LEVEL_UP_SKILL", "ALOCAR_ATRIBUTO", "EVENTO_BOSS", "EVENTO_RECOMPENSA", "ESCOLHA_SALA", "EVENTO_FOGUEIRA", "EVENTO_ALTAR", "EVENTO_PORTAL"].includes(estadoAtual);
+  const isEventScreen = ["EVENTO_BOSS", "EVENTO_RECOMPENSA", "ESCOLHA_SALA", "EVENTO_FOGUEIRA", "EVENTO_ALTAR", "EVENTO_PORTAL", "RESUMO_BATALHA", "LEVEL_UP_SCREEN"].includes(estadoAtual);
 
   if (!isEventScreen) {
     htmlHUD += `
@@ -1282,16 +1348,79 @@ function render() {
     }
   }
 
-  if (isEventScreen) {
+  if (estadoAtual === "RESUMO_BATALHA") {
+
+    // Contagem de inimigos derrotados
+    const contagemInimigos = battleSummary.inimigosDerrotados.reduce((acc, curr) => {
+      acc[curr] = (acc[curr] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    let monstrosHTML = Object.entries(contagemInimigos).map(([nome, qtd]) => {
+      return `<li style="color: #ff6b6b; margin-bottom: 5px;">☠️ ${qtd}x ${nome}</li>`;
+    }).join("");
+    if (monstrosHTML === "") monstrosHTML = `<li style="color: #888;">Nenhum inimigo derrotado.</li>`;
+
+    let dropsHTML = battleSummary.drops.map(d => {
+      return `<li style="color: #a9e34b; margin-bottom: 5px;">🎒 ${d}</li>`;
+    }).join("");
+    if (dropsHTML === "") dropsHTML = `<li style="color: #888;">Nenhum material recebido.</li>`;
+
+    htmlHUD += `
+      <div class="event-screen-container">
+        <div class="event-title" style="color: #ffd43b;">Batalha Vencida!</div>
+        <div class="event-subtitle">Estatísticas do combate</div>
+        
+        <div style="display: flex; gap: 20px; justify-content: center; margin-top: 20px; text-align: left;">
+          <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid #444; flex: 1;">
+             <h3 style="color: #ccc; margin-top:0; border-bottom: 1px solid #555; padding-bottom: 5px;">Criaturas Derrotadas</h3>
+             <ul style="list-style: none; padding: 0; margin: 0;">${monstrosHTML}</ul>
+          </div>
+          
+          <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid #444; flex: 1;">
+             <h3 style="color: #ccc; margin-top:0; border-bottom: 1px solid #555; padding-bottom: 5px;">Ganhos</h3>
+             <ul style="list-style: none; padding: 0; margin: 0;">
+                ${dropsHTML}
+                <li style="color: #ffd43b; margin-top: 10px;">💰 +${battleSummary.ouroGanho} Ouro</li>
+                <li style="color: #4dabf7;">✨ +${battleSummary.xpGanho} XP</li>
+             </ul>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (estadoAtual === "LEVEL_UP_SCREEN") {
+    htmlHUD += `
+      <div class="event-screen-container">
+        <img src="sprites/Rogue-Text-LevelUp-Icon.gif" class="event-level-up-icon" alt="Event Icon">
+        <div class="event-title">Você subiu de nível!</div>
+        <div class="event-subtitle">
+          Escolha suas recompensas:<br>
+          <span style="color: #4dabf7;">${skillsPendenteDeEscolha} Habilidades Pendentes</span> | 
+          <span style="color: #ffd43b;">${jogador.pontosDeAtributo} Pontos de Atributo</span>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+    `;
+    opcoesAcao.forEach((opcao, idx) => {
+      htmlHUD += `
+        <div class="btn-action-container" style="width: 100%;">
+          <button class="btn-action" id="btn-acao-${idx}" style="width: 100%; text-align: left;">
+            <span class="key-hint">[${idx + 1}]</span> ${opcao.texto}
+          </button>
+          ${opcao.descricao ? `<div class="btn-tooltip">${opcao.descricao}</div>` : ""}
+        </div>
+      `;
+    });
+    htmlHUD += `
+        </div>
+      </div>
+    `;
+  } else if (isEventScreen) {
     let tituloEvento = "";
     let subtituloEvento = "";
     let iconeEvento = "";
 
-    if (estadoAtual === "LEVEL_UP_SKILL" || estadoAtual === "ALOCAR_ATRIBUTO") {
-      tituloEvento = "Level Up!";
-      subtituloEvento = "Você ficou mais forte.";
-      iconeEvento = "sprites/Rogue-Text-LevelUp-Icon.gif";
-    } else if (estadoAtual === "EVENTO_BOSS") {
+    if (estadoAtual === "EVENTO_BOSS") {
       tituloEvento = "Cuidado!";
       subtituloEvento = "Uma presença esmagadora se aproxima...";
       iconeEvento = "sprites/boss-sprite.png";
@@ -1314,16 +1443,18 @@ function render() {
   }
 
   // Botões de Ação
-  htmlHUD += `<div class="action-buttons">`;
-  opcoesAcao.forEach((opcao, idx) => {
-    htmlHUD += `<div class="btn-action-container">
-      <button class="btn-action" id="btn-acao-${idx}">
-        <span class="key-hint">[${idx + 1}]</span> ${opcao.texto}
-      </button>
-      ${opcao.descricao ? `<div class="btn-tooltip">${opcao.descricao}</div>` : ""}
-    </div>`;
-  });
-  htmlHUD += `</div>`;
+  if (estadoAtual !== "LEVEL_UP_SCREEN") {
+    htmlHUD += `<div class="action-buttons">`;
+    opcoesAcao.forEach((opcao, idx) => {
+      htmlHUD += `<div class="btn-action-container">
+        <button class="btn-action" id="btn-acao-${idx}">
+          <span class="key-hint">[${idx + 1}]</span> ${opcao.texto}
+        </button>
+        ${opcao.descricao ? `<div class="btn-tooltip">${opcao.descricao}</div>` : ""}
+      </div>`;
+    });
+    htmlHUD += `</div>`;
+  }
 
   app.innerHTML = htmlHUD;
 
@@ -1360,6 +1491,7 @@ function iniciarNovaRun() {
   primeiroTurnoDoCombate = true;
   primeiraSalaCombate = true;
   assassinoCritou = false;
+  descricoesUsadasNaRun = new Set();
   andarAtual = 1;
   salaAtual = 0;
   estadoAtual = "SELECAO_LOADOUT";
@@ -1382,6 +1514,7 @@ function aplicarLoadoutAoJogador() {
 }
 
 function avancarSala() {
+  resetBattleSummary();
   if (salaAtual === 7) {
     salaAtual = 1;
     andarAtual++;
@@ -1402,7 +1535,7 @@ function gerarInimigos() {
   inimigosFugindo = [];
   if (salaAtual === 7) {
     playMusic("boss");
-    const lista = bossesPorAndar[andarAtual];
+    const lista = getBossesPorAndar()[andarAtual];
     if (lista) {
       const bossName = lista[Math.floor(Math.random() * lista.length)]!;
       const bossObj = battleEnemies[bossName as keyof typeof battleEnemies];
@@ -1416,27 +1549,36 @@ function gerarInimigos() {
     }
   } else {
     playMusic("dungeon");
-    const qtd = Math.floor(Math.random() * 3) + 1;
-    const lista = monstrosPorAndar[andarAtual];
-    if (lista) {
-      for (let i = 0; i < qtd; i++) {
-        const monstro = lista[Math.floor(Math.random() * lista.length)]!;
-        const obj = battleEnemies[monstro as keyof typeof battleEnemies];
+    let listaInimigos = getMonstrosPorAndar()[andarAtual] || ["Goblin"];
+    const temDescricaoEspecifica = salaEscolhidaDescricao && salaEscolhidaDescricao.inimigosRelacionados && salaEscolhidaDescricao.inimigosRelacionados.length > 0;
 
-        const fatorEscalaATK = Math.pow(1.38, andarAtual - 1);
-        const fatorEscalaHP = Math.pow(1.45, andarAtual - 1);
+    const monstrosParaSpawnar: string[] = temDescricaoEspecifica
+      ? salaEscolhidaDescricao!.inimigosRelacionados // spawn EXATAMENTE os inimigos da descrição, na ordem
+      : Array.from({ length: Math.floor(Math.random() * 3) + 1 }, () => listaInimigos[Math.floor(Math.random() * listaInimigos.length)]!);
 
-        let eliteMultATK = combateAtualIsElite ? 1.5 : 1.0;
-        let eliteMultHP = combateAtualIsElite ? 1.5 : 1.0;
+    for (const monstro of monstrosParaSpawnar) {
+      let obj = battleEnemies[monstro as keyof typeof battleEnemies];
 
-        const finalATK = Math.floor(obj.attackPower * fatorEscalaATK * multiplicadorDificuldade * eliteMultATK);
-        const finalHP = Math.floor(obj.life * fatorEscalaHP * multiplicadorDificuldade * eliteMultHP);
+      // Fallback in case the name is wrong
+      if (!obj) obj = { attackPower: 10, life: 30 } as any;
 
-        inimigosAtuais.push(new enemy(monstro, finalATK, finalHP));
-      }
+      const fatorEscalaATK = Math.pow(1.38, andarAtual - 1);
+      const fatorEscalaHP = Math.pow(1.45, andarAtual - 1);
+
+      let eliteMultATK = combateAtualIsElite ? 1.5 : 1.0;
+      let eliteMultHP = combateAtualIsElite ? 1.5 : 1.0;
+
+      const finalATK = Math.floor(obj.attackPower * fatorEscalaATK * multiplicadorDificuldade * eliteMultATK);
+      const finalHP = Math.floor(obj.life * fatorEscalaHP * multiplicadorDificuldade * eliteMultHP);
+
+      inimigosAtuais.push(new enemy(monstro, finalATK, finalHP, false));
     }
+
   }
 
+  salaEscolhidaDescricao = null; // reset for next room
+
+  estadoAtual = "BATALHA";
   if (furiaPenalidade) {
     furiaPenalidadeAtiva = true;
     furiaPenalidade = false;
@@ -1940,9 +2082,15 @@ function processarMortes(): boolean {
       // Drops de materiais
       const drops = rolarDrops(alvo.name, jogador.luck);
       if (drops.length > 0) {
-        drops.forEach(d => adicionarDrop(d));
-        logMensagem += `\n🎒 Drop: ${drops.join(", ")}!`;
+        drops.forEach(d => {
+          adicionarDrop(d);
+          battleSummary.drops.push(d);
+        });
       }
+
+      battleSummary.inimigosDerrotados.push(alvo.name);
+      battleSummary.xpGanho += alvo.xpReward;
+      battleSummary.ouroGanho += Math.floor(alvo.goldReward * jogador.goldMultiplier);
 
       // Necromante Revive (20% de chance + INT * 1%)
       if (temNecromante) {
@@ -2281,13 +2429,19 @@ function faseAtaqueInimigos() {
 // --- EVENTOS E ESCOLHA DE SALAS ---
 
 let combateAtualIsElite = false;
-
+let salaEscolhidaDescricao: RoomDescription | null = null;
 function gerarOpcoesDeSala() {
   if (salaAtual === 6) {
     estadoAtual = "ESCOLHA_SALA";
-    logMensagem = "Uma aura pesada emana da próxima sala... O Boss aguarda!";
+    const descBoss = sortearDescricaoSala(expedicaoAtiva, "boss", descricoesUsadasNaRun);
+    logMensagem = descBoss ? descBoss.texto : "Uma aura pesada emana da próxima sala... O Boss aguarda!";
     opcoesAcao = [
-      { texto: "👑 Entrar no Covil do Boss", acao: () => { combateAtualIsElite = false; avancarSala(); } }
+      {
+        texto: "Entrar no Covil do Boss", acao: () => {
+          if (descBoss) { descricoesUsadasNaRun.add(descBoss.id); salaEscolhidaDescricao = descBoss; }
+          combateAtualIsElite = false; avancarSala();
+        }
+      }
     ];
     render();
     return;
@@ -2297,8 +2451,8 @@ function gerarOpcoesDeSala() {
     estadoAtual = "EVENTO_PORTAL";
     logMensagem = "Com o Boss derrotado, um Portal de Extração se abre diante de você, emanando uma energia segura.";
     opcoesAcao = [
-      { texto: "🌀 Entrar no Portal (Extrair e Vencer)", acao: () => extrairJogador() },
-      { texto: "🚪 Avançar para o Próximo Andar", acao: () => { combateAtualIsElite = false; avancarSala(); } }
+      { texto: "Entrar no Portal (Extrair e Vencer)", acao: () => extrairJogador() },
+      { texto: "Avançar para o Próximo Andar", acao: () => { combateAtualIsElite = false; avancarSala(); } }
     ];
     render();
     return;
@@ -2311,8 +2465,23 @@ function gerarOpcoesDeSala() {
   const opcoesPossiveis = [];
 
   if (temFogueira) {
-    opcoesPossiveis.push({ texto: "🏕️ Fogueira", acao: () => eventoFogueira() });
-    opcoesPossiveis.push({ texto: "⚔️ Combate Comum", acao: () => { combateAtualIsElite = false; avancarSala(); } });
+    const descFogueira = sortearDescricaoSala(expedicaoAtiva, "fogueira", descricoesUsadasNaRun);
+    const textoFogueira = descFogueira ? descFogueira.texto : "Fogueira";
+    opcoesPossiveis.push({
+      texto: textoFogueira, acao: () => {
+        if (descFogueira) descricoesUsadasNaRun.add(descFogueira.id);
+        ultimoEventoSala = "FOGUEIRA"; eventoFogueira();
+      }
+    });
+
+    const descCombate = sortearDescricaoSala(expedicaoAtiva, "combate", descricoesUsadasNaRun);
+    const textoCombate = descCombate ? descCombate.texto : "Combate Comum";
+    opcoesPossiveis.push({
+      texto: textoCombate, acao: () => {
+        if (descCombate) { descricoesUsadasNaRun.add(descCombate.id); salaEscolhidaDescricao = descCombate; }
+        combateAtualIsElite = false; avancarSala();
+      }
+    });
   } else {
     const numPortas = Math.random() < 0.3 ? 3 : 2;
     const tipos = ["COMBATE", "ELITE", "FOGUEIRA", "ALTAR", "BAU", "PORTAL"];
@@ -2338,13 +2507,62 @@ function gerarOpcoesDeSala() {
     }
 
     selecionados.forEach(tipo => {
+      let desc: RoomDescription | null = null;
+      let texto = "";
       switch (tipo) {
-        case "COMBATE": opcoesPossiveis.push({ texto: "⚔️ Combate Comum", acao: () => { ultimoEventoSala = "COMBATE"; combateAtualIsElite = false; avancarSala(); } }); break;
-        case "ELITE": opcoesPossiveis.push({ texto: "💀 Combate de Elite", acao: () => { ultimoEventoSala = "ELITE"; combateAtualIsElite = true; avancarSala(); } }); break;
-        case "FOGUEIRA": opcoesPossiveis.push({ texto: "🏕️ Fogueira", acao: () => { ultimoEventoSala = "FOGUEIRA"; eventoFogueira(); } }); break;
-        case "ALTAR": opcoesPossiveis.push({ texto: "🩸 Altar Sombrio", acao: () => { ultimoEventoSala = "ALTAR"; eventoAltar(); } }); break;
-        case "BAU": opcoesPossiveis.push({ texto: "🎁 Sala do Tesouro", acao: () => { ultimoEventoSala = "BAU"; eventoBauRandom(); } }); break;
-        case "PORTAL": opcoesPossiveis.push({ texto: "🌀 Portal de Extração", acao: () => { ultimoEventoSala = "PORTAL"; eventoPortal(); } }); break;
+        case "COMBATE":
+          desc = sortearDescricaoSala(expedicaoAtiva, "combate", descricoesUsadasNaRun);
+          texto = desc ? desc.texto : "Combate Comum";
+          opcoesPossiveis.push({
+            texto: texto, acao: () => {
+              if (desc) { descricoesUsadasNaRun.add(desc.id); salaEscolhidaDescricao = desc; }
+              ultimoEventoSala = "COMBATE"; combateAtualIsElite = false; avancarSala();
+            }
+          });
+          break;
+        case "ELITE":
+          desc = sortearDescricaoSala(expedicaoAtiva, "elite", descricoesUsadasNaRun) || sortearDescricaoSala(expedicaoAtiva, "combate", descricoesUsadasNaRun);
+          texto = desc ? desc.texto : "Combate de Elite";
+          opcoesPossiveis.push({
+            texto: texto, acao: () => {
+              if (desc) { descricoesUsadasNaRun.add(desc.id); salaEscolhidaDescricao = desc; }
+              ultimoEventoSala = "ELITE"; combateAtualIsElite = true; avancarSala();
+            }
+          });
+          break;
+        case "FOGUEIRA":
+          desc = sortearDescricaoSala(expedicaoAtiva, "fogueira", descricoesUsadasNaRun);
+          texto = desc ? desc.texto : "Fogueira";
+          opcoesPossiveis.push({
+            texto: texto, acao: () => {
+              if (desc) descricoesUsadasNaRun.add(desc.id);
+              ultimoEventoSala = "FOGUEIRA"; eventoFogueira();
+            }
+          });
+          break;
+        case "ALTAR":
+          desc = sortearDescricaoSala(expedicaoAtiva, "altar", descricoesUsadasNaRun);
+          texto = desc ? desc.texto : "Altar Sombrio";
+          opcoesPossiveis.push({
+            texto: texto, acao: () => {
+              if (desc) descricoesUsadasNaRun.add(desc.id);
+              ultimoEventoSala = "ALTAR"; eventoAltar();
+            }
+          });
+          break;
+        case "BAU":
+          desc = sortearDescricaoSala(expedicaoAtiva, "tesouro", descricoesUsadasNaRun);
+          texto = desc ? desc.texto : "Sala do Tesouro";
+          opcoesPossiveis.push({
+            texto: texto, acao: () => {
+              if (desc) descricoesUsadasNaRun.add(desc.id);
+              ultimoEventoSala = "BAU"; eventoBauRandom();
+            }
+          });
+          break;
+        case "PORTAL":
+          opcoesPossiveis.push({ texto: "Portal de Extração", acao: () => { ultimoEventoSala = "PORTAL"; eventoPortal(); } });
+          break;
       }
     });
   }
@@ -2368,7 +2586,7 @@ function eventoFogueira() {
     {
       texto: "Meditar (+1 Atributo)", acao: () => {
         jogador.pontosDeAtributo++;
-        irParaAlocacaoDeAtributo();
+        irParaTelaLevelUp();
       }
     }
   ];
@@ -2387,7 +2605,7 @@ function eventoAltar() {
         jogador.maxLife -= hpPerdido;
         if (jogador.life > jogador.maxLife) jogador.life = jogador.maxLife;
         jogador.pontosDeAtributo += 5;
-        atualizarLog(`Sua força vital foi drenada (-${hpPerdido} Max HP). O poder flui por suas veias!`, () => irParaAlocacaoDeAtributo());
+        atualizarLog(`Sua força vital foi drenada (-${hpPerdido} Max HP). O poder flui por suas veias!`, () => irParaTelaLevelUp());
       }
     },
     {
@@ -2513,6 +2731,10 @@ function vencerBatalha() {
     jogador.levelUp();
     nivelUp++;
   }
+  (jogador as any)._pendingLevelUps = nivelUp;
+
+  battleSummary.xpGanho += xpBonusSala;
+  battleSummary.ouroGanho += goldSala;
 
   // BOSS (Sala 10): sempre dá baú
   if (salaAtual === 7) {
@@ -2535,41 +2757,18 @@ function vencerBatalha() {
     }
 
     if (andarAtual >= 10) {
-      if (multiplicadorDificuldade === 1.0) {
-        registrarExpedicaoConcluida("EXP_1_NORMAL");
-      } else if (multiplicadorDificuldade === 1.5 && jogador.dexterity >= 20) {
+      registrarExpedicaoConcluida(expedicaoAtiva.id);
+      if (expedicaoAtiva.id === "ancient_dungeon" && multiplicadorDificuldade === 1.5 && jogador.dexterity >= 20) {
         desbloquearFlag("EXP_1_HARD_DEX_20");
       }
-      msgBau = `🎉 EXPEDIÇÃO CONCLUÍDA! Você derrotou o Boss Final e recebeu um ${bau.nome}!\n`;
-      if (recompensa.tipo === "arma") msgBau += `<img src="sprites/weapon-icon.png" style="width:44px; height:44px; vertical-align:-12px;" alt="⚔️"> Arma: ${recompensa.item.name}`;
-      else msgBau += `🧪 Consumível: ${recompensa.item.name}`;
+      (jogador as any)._expedicaoConcluidaMsg = `🎉 EXPEDIÇÃO CONCLUÍDA! Você derrotou o Boss Final e recebeu um ${bau.nome}!\n`;
     }
 
-    estadoAtual = "EVENTO_RECOMPENSA";
-    logMensagem = msgBau;
+    estadoAtual = "RESUMO_BATALHA";
     opcoesAcao = [
       {
         texto: "Continuar",
-        acao: () => {
-          if (nivelUp > 0) {
-            skillsPendenteDeEscolha = nivelUp;
-            estadoAtual = "LEVEL_UP_SKILL";
-            atualizarLog("Você subiu de nível!", () => {
-              setTimeout(() => escolherNovaSkillLevelUp(), 800);
-            });
-          } else {
-            if (andarAtual >= 10) {
-              runStats.resultado = "VITÓRIA";
-              estadoAtual = "ESTATISTICAS_RUN";
-              adicionarGold(jogador.gold);
-              jogador.removerEquipamentos();
-              opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
-            } else {
-              gerarOpcoesDeSala();
-            }
-            render();
-          }
-        }
+        acao: () => processarPosResumoBatalha()
       }
     ];
     render();
@@ -2581,8 +2780,6 @@ function vencerBatalha() {
   const chanceConsumivel = 0.25 * multiplicadorDificuldade;
   const chanceArma = (0.05 + (andarAtual * 0.015)) * multiplicadorDificuldade; // 5% andar 1 → ~20% andar 10
   const roll = Math.random();
-
-  let msgSala = `${logMensagem}\n\nBatalha vencida! +${xpBonusSala} XP e +${goldSala}G.`;
 
   if (roll < chanceArma) {
     // Drop de arma: raridade escala com o andar
@@ -2597,92 +2794,145 @@ function vencerBatalha() {
     if (armasFiltradas.length > 0) {
       const armaDropada = armasFiltradas[Math.floor(Math.random() * armasFiltradas.length)]!;
       jogador.weaponInventory.push(armaDropada);
-      msgSala += `\n🗡️ Item encontrado: ${armaDropada.name} (${armaDropada.raridade})!`;
+      battleSummary.armasEncontradas.push(armaDropada);
     }
   } else if (roll < chanceArma + chanceConsumivel) {
     // Drop de consumível
     const consumiveis = Object.values(listaConsumiveis);
     const consDropado = consumiveis[Math.floor(Math.random() * consumiveis.length)]!;
     jogador.inventory.push(consDropado.name);
-    msgSala += `\n🧪 Consumível encontrado: ${consDropado.name}!`;
+    battleSummary.consumiveisEncontrados.push(consDropado);
   }
 
-  estadoAtual = "EVENTO_RECOMPENSA";
-  logMensagem = msgSala;
+  estadoAtual = "RESUMO_BATALHA";
   opcoesAcao = [
     {
       texto: "Continuar",
-      acao: () => {
-        if (nivelUp > 0) {
-          skillsPendenteDeEscolha = nivelUp;
-          estadoAtual = "LEVEL_UP_SKILL";
-          atualizarLog("Você subiu de nível!", () => {
-            setTimeout(() => escolherNovaSkillLevelUp(), 800);
-          });
-        } else {
-          gerarOpcoesDeSala();
-        }
-      }
+      acao: () => processarPosResumoBatalha()
     }
   ];
   render();
 }
 
-function escolherNovaSkillLevelUp() {
-  const opcoes = sortearTresHabilidades(jogador.level, jogador.skills, jogador.classe);
-  if (opcoes.length === 0) {
-    atualizarLog("Você já tem todas as habilidades disponíveis!");
-    skillsPendenteDeEscolha = 0;
-    irParaAlocacaoDeAtributo();
-    return;
-  }
+function processarPosResumoBatalha() {
+  const nivelUp = (jogador as any)._pendingLevelUps || 0;
+  const hasLoot = battleSummary.armasEncontradas.length > 0 || battleSummary.consumiveisEncontrados.length > 0 || salaAtual === 7;
 
-  atualizarLog(`LEVEL UP! Escolha uma nova habilidade (Pendentes: ${skillsPendenteDeEscolha}):`);
-  opcoesAcao = opcoes.map(op => ({
-    texto: `${op.nome} (${op.raridade})`,
-    descricao: op.descricao,
-    acao: () => {
-      jogador.skills.push(op);
-      skillsPendenteDeEscolha--;
-      if (skillsPendenteDeEscolha > 0) {
-        escolherNovaSkillLevelUp();
+  const continuarAcao = () => {
+    if (hasLoot) {
+      estadoAtual = "EVENTO_RECOMPENSA";
+      let msg = "";
+      if ((jogador as any)._expedicaoConcluidaMsg) {
+        msg += (jogador as any)._expedicaoConcluidaMsg;
+      } else if (salaAtual === 7) {
+        msg += `🏆 Boss derrotado! Você recebeu um Baú!\n`;
       } else {
-        irParaAlocacaoDeAtributo();
+        msg += `Você encontrou algo interessante no fim da sala:\n`;
+      }
+
+      battleSummary.armasEncontradas.forEach(a => {
+        msg += `\n<img src="sprites/weapon-icon.png" style="width:44px; height:44px; vertical-align:-12px;" alt="⚔️"> Arma encontrada: ${a.name} (${a.raridade})`;
+      });
+      battleSummary.consumiveisEncontrados.forEach(c => {
+        msg += `\n🧪 Consumível encontrado: ${c.name}`;
+      });
+
+      logMensagem = msg;
+      opcoesAcao = [
+        { texto: "Continuar", acao: () => fimDaSala() }
+      ];
+      render();
+    } else {
+      fimDaSala();
+    }
+  };
+
+  if (nivelUp > 0) {
+    skillsPendenteDeEscolha = nivelUp;
+    (jogador as any)._pendingLevelUps = 0;
+    (jogador as any)._afterLevelUpAction = continuarAcao;
+    irParaTelaLevelUp();
+  } else {
+    continuarAcao();
+  }
+}
+
+function fimDaSala() {
+  if (salaAtual === 7 && andarAtual >= 10) {
+    runStats.resultado = "VITÓRIA";
+    estadoAtual = "ESTATISTICAS_RUN";
+    adicionarGold(jogador.gold);
+    jogador.removerEquipamentos();
+    opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
+    render();
+  } else {
+    gerarOpcoesDeSala();
+  }
+}
+
+let opcoesHabilidadesAtuais: import('./skills').ISkill[] = [];
+
+function irParaTelaLevelUp() {
+  estadoAtual = "LEVEL_UP_SCREEN";
+  let opcoes: any[] = [];
+
+  if (skillsPendenteDeEscolha > 0) {
+    if (opcoesHabilidadesAtuais.length === 0) {
+      opcoesHabilidadesAtuais = sortearTresHabilidades(jogador.level, jogador.skills, jogador.classe);
+      if (opcoesHabilidadesAtuais.length === 0) {
+        skillsPendenteDeEscolha = 0; // fallback se não tiver mais
       }
     }
-  }));
-  render();
-}
-
-function irParaAlocacaoDeAtributo() {
-  estadoAtual = "ALOCAR_ATRIBUTO";
-  if (jogador.pontosDeAtributo <= 0) {
-    if (andarAtual >= 10 && salaAtual === 7) {
-      runStats.resultado = "VITÓRIA";
-      estadoAtual = "ESTATISTICAS_RUN";
-      opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
-      atualizarLog("🎉 EXPEDIÇÃO CONCLUÍDA! Você finalizou o Andar 10 e sua progressão foi salva.");
-    } else {
-      gerarOpcoesDeSala();
-    }
-    return;
+    
+    opcoesHabilidadesAtuais.forEach(op => {
+      opcoes.push({
+        texto: `<span style="color: #4dabf7;">[Habilidade]</span> ${op.nome} (${op.raridade})`,
+        descricao: op.descricao,
+        acao: () => {
+          jogador.skills.push(op);
+          skillsPendenteDeEscolha--;
+          opcoesHabilidadesAtuais = [];
+          verificarFimLevelUp();
+        }
+      });
+    });
   }
 
-  atualizarLog(`ALOCAR ATRIBUTO (${jogador.pontosDeAtributo} restantes)`);
-  opcoesAcao = [
-    { texto: `Força (+1)`, acao: () => { jogador.strength++; alocouPonto(); } },
-    { texto: `Destreza (+1)`, acao: () => { jogador.dexterity++; alocouPonto(); } },
-    { texto: `Inteligência (+1)`, acao: () => { jogador.intelligence++; alocouPonto(); } },
-    { texto: `Sorte (+1)`, acao: () => { jogador.luck++; alocouPonto(); } },
-    { texto: `Defesa (+1)`, acao: () => { jogador.defense++; alocouPonto(); } }
-  ];
+  if (jogador.pontosDeAtributo > 0) {
+    opcoes.push({ texto: `<span style="color: #ffd43b;">[Atributo]</span> Força (+1)`, acao: () => { jogador.strength++; jogador.pontosDeAtributo--; verificarFimLevelUp(); } });
+    opcoes.push({ texto: `<span style="color: #ffd43b;">[Atributo]</span> Destreza (+1)`, acao: () => { jogador.dexterity++; jogador.pontosDeAtributo--; verificarFimLevelUp(); } });
+    opcoes.push({ texto: `<span style="color: #ffd43b;">[Atributo]</span> Inteligência (+1)`, acao: () => { jogador.intelligence++; jogador.pontosDeAtributo--; verificarFimLevelUp(); } });
+    opcoes.push({ texto: `<span style="color: #ffd43b;">[Atributo]</span> Sorte (+1)`, acao: () => { jogador.luck++; jogador.pontosDeAtributo--; verificarFimLevelUp(); } });
+    opcoes.push({ texto: `<span style="color: #ffd43b;">[Atributo]</span> Defesa (+1)`, acao: () => { jogador.defense++; jogador.pontosDeAtributo--; verificarFimLevelUp(); } });
+  }
+
+  opcoesAcao = opcoes;
   render();
 }
 
-function alocouPonto() {
-  jogador.pontosDeAtributo--;
-  irParaAlocacaoDeAtributo(); // Verifica se tem mais ou volta pra exploração
+function verificarFimLevelUp() {
+  if (skillsPendenteDeEscolha <= 0 && jogador.pontosDeAtributo <= 0) {
+    if ((jogador as any)._afterLevelUpAction) {
+      const action = (jogador as any)._afterLevelUpAction;
+      (jogador as any)._afterLevelUpAction = undefined; // clear it
+      action();
+    } else {
+      if (andarAtual >= 10 && salaAtual === 7) {
+        runStats.resultado = "VITÓRIA";
+        estadoAtual = "ESTATISTICAS_RUN";
+        opcoesAcao = [{ texto: "Ver Relatório", acao: () => render() }];
+        atualizarLog("🎉 EXPEDIÇÃO CONCLUÍDA! Você finalizou o Andar 10 e sua progressão foi salva.");
+      } else {
+        gerarOpcoesDeSala();
+      }
+    }
+  } else {
+    irParaTelaLevelUp();
+  }
 }
+
+
+
 
 function initSettings() {
   const settingsBtn = document.getElementById("settings-btn");

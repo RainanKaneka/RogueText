@@ -179,14 +179,35 @@ export const tabelaDrops: Record<string, [string, string]> = {
   "Centopeia Anciã": ["Placa Quitinosa Ancestral", "Mandíbula Venenosa"],
 };
 
-/**
- * Rola os drops de um inimigo.
- * Chance base de 50% por item. Cada ponto de luck adiciona +1%, limitado a 85%.
- * @returns Lista dos nomes dos itens dropados (pode ser 0, 1 ou 2 itens)
- */
 export function rolarDrops(nomeInimigo: string, luck: number): string[] {
-  const drops = tabelaDrops[nomeInimigo];
-  if (!drops) return [];
+  let drops = tabelaDrops[nomeInimigo];
+  
+  if (!drops) {
+    const isGelo = /(Gelo|Ártico|Frio|Yeti|Congelado|Permafrost|Cristalino)/i.test(nomeInimigo);
+    const isFogo = /(Fogo|Lava|Flamejante|Infernal|Magma|Cinzas|Vulcão|Vulcânico|Salamandra|Fênix|Efreet)/i.test(nomeInimigo);
+    const isTrevas = /(Sombra|Trevas|Sombrio|Espectro|Pesadelo|Vampiro|Assassino|Banshee|Lich|Demônio|Alma|Ceifador|Wraith)/i.test(nomeInimigo);
+    
+    let drop1 = `Fragmento de ${nomeInimigo}`;
+    let drop2 = `Essência de ${nomeInimigo}`;
+    
+    if (isGelo) {
+      drop1 = `Fragmento Congelado de ${nomeInimigo}`;
+      drop2 = `Essência Gelada de ${nomeInimigo}`;
+    } else if (isFogo) {
+      drop1 = `Fragmento Ígneo de ${nomeInimigo}`;
+      drop2 = `Cinzas de ${nomeInimigo}`;
+    } else if (isTrevas) {
+      drop1 = `Fragmento Sombrio de ${nomeInimigo}`;
+      drop2 = `Essência Corrupta de ${nomeInimigo}`;
+    }
+    
+    // Registrar no dropsDB dinamicamente
+    if (!dropsDB[drop1]) dropsDB[drop1] = { nome: drop1, descricao: `Material extraído de ${nomeInimigo}.`, tier: 3 };
+    if (!dropsDB[drop2]) dropsDB[drop2] = { nome: drop2, descricao: `Material raro de ${nomeInimigo}.`, tier: 4 };
+    
+    // Typecast to any because the type definition expects a tuple [string, string] but an array is fine here for our logic
+    drops = [drop1, drop2] as any;
+  }
 
   const chance = Math.min(0.85, 0.50 + luck * 0.01);
   const resultado: string[] = [];
