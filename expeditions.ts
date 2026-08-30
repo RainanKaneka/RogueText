@@ -88,7 +88,7 @@ export const expeditions: Record<ExpeditionId, Expedition> = {
     tema: "gelo",
     icone: "",
     corTema: "#4fc3f7",
-    dificuldadeBase: 3,
+    dificuldadeBase: 2.0,
     andares: 10,
     monstrosPorAndar: {
       1: ["Lobo Ártico", "Morcego de Gelo", "Goblin do Gelo"],
@@ -154,7 +154,7 @@ export const expeditions: Record<ExpeditionId, Expedition> = {
     tema: "fogo",
     icone: "",
     corTema: "#ff6b35",
-    dificuldadeBase: 3,
+    dificuldadeBase: 2.5,
     andares: 10,
     monstrosPorAndar: {
       1: ["Salamandra Menor", "Morcego de Fogo", "Goblin do Fogo"],
@@ -220,7 +220,7 @@ export const expeditions: Record<ExpeditionId, Expedition> = {
     tema: "trevas",
     icone: "",
     corTema: "#9c27b0",
-    dificuldadeBase: 3,
+    dificuldadeBase: 3.0,
     andares: 10,
     monstrosPorAndar: {
       1: ["Sombra Rastejante", "Morcego Sombrio", "Goblin das Trevas"],

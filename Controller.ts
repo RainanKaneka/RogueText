@@ -410,7 +410,7 @@ function render() {
         };
         btn.onclick = () => {
           expedicaoAtiva = exp;
-          multiplicadorDificuldade = 1.0;
+          multiplicadorDificuldade = exp.dificuldadeBase;
           iniciarNovaRun();
         };
       }

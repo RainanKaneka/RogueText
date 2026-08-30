@@ -641,7 +641,7 @@ body {
   width: 256px;
   height: 60px;
   overflow: hidden;
-  margin-top: 60px;
+  margin-top: 70px;
   margin-bottom: -5px;
   flex-shrink: 0;
 }
@@ -934,38 +934,96 @@ body {
   background: rgba(255, 255, 255, 0.1);
   border-color: white;
 }
+
 @keyframes healthBarDrop {
-  0% { filter: brightness(2); }
-  100% { filter: brightness(1); }
+  0% {
+    filter: brightness(2);
+  }
+
+  100% {
+    filter: brightness(1);
+  }
 }
+
 .health-drop {
   animation: healthBarDrop 0.4s ease-out forwards;
 }
 
 @keyframes shake-hit {
-  0% { margin-left: 1px; margin-top: 1px; }
-  10% { margin-left: -1px; margin-top: -2px; }
-  20% { margin-left: -3px; margin-top: 0px; }
-  30% { margin-left: 3px; margin-top: 2px; }
-  40% { margin-left: 1px; margin-top: -1px; }
-  50% { margin-left: -1px; margin-top: 2px; }
-  60% { margin-left: -3px; margin-top: 1px; }
-  70% { margin-left: 3px; margin-top: 1px; }
-  80% { margin-left: -1px; margin-top: -1px; }
-  90% { margin-left: 2px; margin-top: 2px; }
-  100% { margin-left: 0; margin-top: 0; }
+  0% {
+    margin-left: 1px;
+    margin-top: 1px;
+  }
+
+  10% {
+    margin-left: -1px;
+    margin-top: -2px;
+  }
+
+  20% {
+    margin-left: -3px;
+    margin-top: 0px;
+  }
+
+  30% {
+    margin-left: 3px;
+    margin-top: 2px;
+  }
+
+  40% {
+    margin-left: 1px;
+    margin-top: -1px;
+  }
+
+  50% {
+    margin-left: -1px;
+    margin-top: 2px;
+  }
+
+  60% {
+    margin-left: -3px;
+    margin-top: 1px;
+  }
+
+  70% {
+    margin-left: 3px;
+    margin-top: 1px;
+  }
+
+  80% {
+    margin-left: -1px;
+    margin-top: -1px;
+  }
+
+  90% {
+    margin-left: 2px;
+    margin-top: 2px;
+  }
+
+  100% {
+    margin-left: 0;
+    margin-top: 0;
+  }
 }
+
 .shake-hit {
   animation: shake-hit 0.4s ease-out forwards;
 }
 
 @keyframes slideWidth {
-  from { width: var(--prev-width); }
-  to { width: var(--target-width); }
+  from {
+    width: var(--prev-width);
+  }
+
+  to {
+    width: var(--target-width);
+  }
 }
+
 .animate-width {
   animation: slideWidth 0.3s ease-out forwards;
 }
+
 .animate-width.health-drop {
   animation: slideWidth 0.3s ease-out forwards, healthBarDrop 0.4s ease-out forwards;
 }
