@@ -19,6 +19,7 @@ export interface Expedition {
   id: ExpeditionId;
   nome: string;
   descricao: string;
+  introducao: string; // texto narrativo exibido ao iniciar a expedição
   tema: string;
   icone: string;
   corTema: string; // cor CSS para estilização
@@ -43,6 +44,7 @@ export const expeditions: Record<ExpeditionId, Expedition> = {
     id: "ancient_dungeon",
     nome: "Masmorra Antiga",
     descricao: "Uma masmorra esquecida pelo tempo, repleta de criaturas que se abrigam em suas ruínas. O local perfeito para aventureiros iniciantes provarem seu valor.",
+    introducao: "As portas de pedra rangem ao se abrirem, revelando um corredor engolido pela escuridão. O ar é denso, carregado com o cheiro de mofo e séculos de abandono. Tochas há muito apagadas ladeiam paredes rachadas, cobertas de musgo e teias. Sussurros indecifráveis ecoam das profundezas — são os ecos dos que vieram antes de você, ou algo que ainda vive nas sombras? A Masmorra Antiga guarda segredos e perigos esquecidos pelo tempo. Poucos ousam descer. Menos ainda retornam.",
     tema: "ruínas",
     icone: "",
     corTema: "#a0a0a0",
@@ -82,6 +84,7 @@ export const expeditions: Record<ExpeditionId, Expedition> = {
     id: "frost_mountain",
     nome: "Montanha de Gelo",
     descricao: "Picos congelados onde o ar corta como lâminas. Criaturas de gelo ancestrais habitam cavernas cristalinas e protegem segredos milenares.",
+    introducao: "O vento corta como navalha enquanto você escala o caminho congelado em direção ao cume. Cada respiração queima os pulmões, e a neve não para de cair. Lá em cima, entre picos de gelo que perfuram as nuvens, cavernas cristalinas guardam criaturas ancestrais que dormem há milênios. Dizem que os próprios Gigantes de Gelo moldaram estas montanhas como um santuário — e que algo muito antigo ainda vigia do topo. A trilha à frente desaparece sob a nevasca. Não há como voltar.",
     tema: "gelo",
     icone: "",
     corTema: "#4fc3f7",
@@ -147,6 +150,7 @@ export const expeditions: Record<ExpeditionId, Expedition> = {
     id: "flame_kingdom",
     nome: "Reino das Chamas",
     descricao: "Terras vulcânicas onde rios de lava cortam a paisagem. Criaturas de fogo dominam este domínio abrasador e derretem tudo que se atreve a entrar.",
+    introducao: "O chão estala sob seus pés enquanto o calor distorce o horizonte em ondas tremulantes. Rios de lava cortam a paisagem como veias incandescentes, iluminando cavernas de obsidiana com um brilho vermelho e sinistro. O ar cheira a enxofre e cinzas. Criaturas feitas de puro fogo espreitam entre as rochas negras, e o vulcão no centro deste reino pulsa como um coração vivo. Os antigos diziam que um ser de chamas eternas governa estas terras — e que nenhuma lâmina comum pode feri-lo. O calor aumenta a cada passo.",
     tema: "fogo",
     icone: "",
     corTema: "#ff6b35",
@@ -212,6 +216,7 @@ export const expeditions: Record<ExpeditionId, Expedition> = {
     id: "shadow_realm",
     nome: "Reino das Trevas",
     descricao: "Um domínio onde a luz não alcança. Criaturas da escuridão eterna se alimentam do medo e das almas dos vivos. Poucos retornam para contar a história.",
+    introducao: "A luz se extingue como se tivesse sido devorada. A escuridão aqui não é apenas a ausência de luz — ela tem textura, peso, e vontade própria. Sussurros invadem sua mente antes mesmo de dar o primeiro passo. Sombras se movem sem corpo que as projete, e olhos vermelhos piscam no vazio antes de desaparecerem. O Reino das Trevas se alimenta do medo, e cada batida do seu coração ecoa como um convite ao que habita nas profundezas. Os que entraram antes de você não deixaram rastros. Nem ossos. Nem memórias.",
     tema: "trevas",
     icone: "",
     corTema: "#9c27b0",

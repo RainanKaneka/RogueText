@@ -106,7 +106,7 @@ function iniciarExploracaoBase() {
   registrarChegadaAndar(1);
   estadoAtual = "EXPLORACAO";
   opcoesAcao = [{ texto: "Iniciar Jornada", acao: () => avancarSala() }];
-  atualizarLog(`Você escolheu a classe ${jogador.classe}! Boa sorte!`);
+  atualizarLog(expedicaoAtiva.introducao);
   render();
 }
 
@@ -1470,7 +1470,7 @@ function render() {
     }
     
     if (logMensagem) {
-      mainPanelHTML += `</div><div style="font-size: 1.1rem; line-height: 1.5; color: #ddd; text-align: center; margin-bottom: 20px;">${logMensagem}</div>`;
+      mainPanelHTML += `<div style="font-size: 1.25rem; line-height: 1.6; color: #ddd; text-align: center; margin: auto 0;">${logMensagem}</div></div>`;
     } else {
       mainPanelHTML += `</div>`;
     }
