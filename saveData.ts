@@ -16,6 +16,8 @@ export interface SaveData {
   armaEquipada?: string;
   historicoAndares?: Record<number, number>;
   expedicoesConcluidas?: string[];
+  monstrosVistos?: string[];
+  itensVistos?: string[];
 }
 
 const DEFAULT_SAVE: SaveData = {
@@ -29,6 +31,8 @@ const DEFAULT_SAVE: SaveData = {
   drops: {},
   historicoAndares: {},
   expedicoesConcluidas: [],
+  monstrosVistos: [],
+  itensVistos: [],
 };
 
 export function lerSave(): SaveData {
@@ -65,8 +69,28 @@ export function registrarExpedicaoConcluida(expedicaoId: string): void {
   if (!save.expedicoesConcluidas) {
     save.expedicoesConcluidas = [];
   }
-  if (!save.expedicoesConcluidas.includes(expedicaoId)) {
-    save.expedicoesConcluidas.push(expedicaoId);
+  save.expedicoesConcluidas.push(expedicaoId);
+  salvarSave(save);
+}
+
+export function registrarMonstroVisto(monstroId: string): void {
+  const save = lerSave();
+  if (!save.monstrosVistos) {
+    save.monstrosVistos = [];
+  }
+  if (!save.monstrosVistos.includes(monstroId)) {
+    save.monstrosVistos.push(monstroId);
+    salvarSave(save);
+  }
+}
+
+export function registrarItemVisto(itemId: string): void {
+  const save = lerSave();
+  if (!save.itensVistos) {
+    save.itensVistos = [];
+  }
+  if (!save.itensVistos.includes(itemId)) {
+    save.itensVistos.push(itemId);
     salvarSave(save);
   }
 }

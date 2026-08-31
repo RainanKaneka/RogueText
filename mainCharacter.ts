@@ -32,6 +32,7 @@ export class mainCharacter extends Attack {
   public equippedAccessories: IAcessorio[] = [];
   public classe: string = "";
   public pontosDeAtributo: number = 0;
+  public pendingSkillUpgrades: number = 0;
   public gold: number = 0;
   /** Flag interna usada pela passiva 'Bastião' da Armadura de Placas */
   public _armorPassivaAtiva?: string;
@@ -192,11 +193,8 @@ export class mainCharacter extends Attack {
 
       // Aumentos base de recursos por nível
       this.maxLife += 25 + (this.level * 3) + Math.floor(defCalc * 2);
-      this.life = Math.min(this.maxLife, this.life + Math.floor(this.maxLife * 0.3));
       this.maxEnergy += 10 + (this.level * 2) * (this.strength / 5);
       this.maxMana += 10 + (this.level * 2) * (this.intelligence / 5);
-      this.energy = Math.min(this.maxEnergy, this.energy + Math.floor(this.maxEnergy * 0.3));
-      this.mana = Math.min(this.maxMana, this.mana + Math.floor(this.maxMana * 0.3));
 
       // +1 ponto de atributo para o jogador alocar
       this.pontosDeAtributo += 1;
@@ -204,6 +202,11 @@ export class mainCharacter extends Attack {
       // Passiva Keth: +1 Destreza a cada 3 níveis
       if (this.classe === "Keth" && this.level % 3 === 0) {
         this.dexterity += 1;
+      }
+
+      // Upgrade de habilidade a cada 4 níveis
+      if (this.level % 4 === 0) {
+        this.pendingSkillUpgrades += 1;
       }
 
       console.log(chalk.bgMagenta.white.bold(`\n LEVEL UP! `));
@@ -214,6 +217,9 @@ export class mainCharacter extends Attack {
       );
       console.log(chalk.green(`Vida máxima aumentada para ${this.maxLife}.`));
       console.log(chalk.cyan(`Você ganhou 1 ponto de atributo para alocar!`));
+      if (this.level % 4 === 0) {
+        console.log(chalk.yellowBright(`🎉 Você ganhou 1 UPGRADE DE HABILIDADE!`));
+      }
 
       return true;
     }
@@ -251,6 +257,11 @@ export class mainCharacter extends Attack {
     for (const acc of this.equippedAccessories) {
       if (acc.passiva?.onTurn) {
         acc.passiva.onTurn(this, inimigos);
+      }
+    }
+    for (const skill of this.skills) {
+      if (skill.tipo === "PASSIVA" && skill.onTurn) {
+        skill.onTurn(this, inimigos);
       }
     }
   }

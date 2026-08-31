@@ -3,8 +3,8 @@ import { enemy, battleEnemies } from "./enemies";
 import { listaConsumiveis, listaArmas, listaArmaduras, listaAcessorios, abrirBau, bauDoAndar, listaBaus } from "./artefacts";
 import { sortearTresHabilidades } from "./actions";
 import { getClassesDisponiveis, getClassesBloqueadas, aplicarClasse } from "./classes";
-import { lerSave, salvarSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras, desbloquearFlag, adicionarDrop, lerDrops, salvarLoadout, lerLoadout, removerItemExtra, consumirDrops, adicionarArmaduraExtra, adicionarAcessorioExtra, temFlag, registrarChegadaAndar, registrarExpedicaoConcluida } from "./saveData";
-import { rolarDrops } from "./drops.js";
+import { lerSave, salvarSave, atualizarAndarMax, adicionarGold, gastarGold, adicionarArmaExtra, limparArmasExtras, adicionarConsumivelExtra, limparConsumiveisExtras, desbloquearFlag, adicionarDrop, lerDrops, salvarLoadout, lerLoadout, removerItemExtra, consumirDrops, adicionarArmaduraExtra, adicionarAcessorioExtra, temFlag, registrarChegadaAndar, registrarExpedicaoConcluida, registrarMonstroVisto, registrarItemVisto } from "./saveData";
+import { rolarDrops, tabelaDrops } from "./drops.js";
 import { initMusic, playMusic, playSfx, updateHeartbeat, setMusicVolume, setSfxVolume, musicVolume, sfxVolume } from "./music.js";
 import { showParryBar, setParryWindowBonus, parryStreak } from "./parry.js";
 import { type Expedition, type ExpeditionId, type RoomDescription, expeditions, getExpedicoesDesbloqueadas, getExpedicoesBloqueadas, getExpedition, sortearDescricaoSala } from "./expeditions.js";
@@ -272,6 +272,7 @@ function render() {
         <button class="btn-lobby" id="btn-mochila">Mochila</button>
         <button class="btn-lobby" id="btn-marcos">Marcos</button>
         <button class="btn-lobby" id="btn-classes">Classes</button>
+        <button class="btn-lobby" id="btn-diario">Diário do Explorador</button>
         <button class="btn-lobby" id="btn-sobre">Sobre o Jogo</button>
       </div>`;
     document.getElementById("btn-nova-run")!.onclick = () => { estadoAtual = "EXPEDICOES"; render(); };
@@ -281,6 +282,7 @@ function render() {
     document.getElementById("btn-sobre")!.onclick = () => { estadoAtual = "SOBRE"; render(); };
     document.getElementById("btn-mochila")!.onclick = () => { estadoAtual = "MOCHILA"; render(); };
     document.getElementById("btn-marcos")!.onclick = () => { estadoAtual = "MARCOS"; render(); };
+    document.getElementById("btn-diario")!.onclick = () => { estadoAtual = "DIARIO"; render(); };
 
     document.querySelectorAll(".btn-lobby").forEach(btn => {
       btn.addEventListener("mouseenter", () => playSfx("hover"));
@@ -420,6 +422,319 @@ function render() {
       estadoAtual = "LOBBY";
       render();
     };
+    return;
+  }
+
+  if (estadoAtual === "DIARIO") {
+    // Definimos uma tabAtual para o Diário, se não existir cria uma global.
+    // Usaremos window para manter simples.
+    const tabAtual = (window as any).diarioTabAtual || "CRIATURAS";
+    const save = lerSave();
+
+    let html = `<h2 style="text-align: center; color: #ffd43b;">Diário do Explorador</h2>`;
+    html += `
+      <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
+        <button class="btn-action ${tabAtual === 'CRIATURAS' ? 'active-tab' : ''}" id="btn-tab-criaturas">Criaturas</button>
+        <button class="btn-action ${tabAtual === 'ITENS' ? 'active-tab' : ''}" id="btn-tab-itens">Itens</button>
+        <button class="btn-action ${tabAtual === 'EXPEDICOES' ? 'active-tab' : ''}" id="btn-tab-expedicoes">Expedições</button>
+      </div>
+    `;
+
+    html += `<div class="diary-book">`;
+
+    if (tabAtual === "CRIATURAS") {
+      const monstros = save.monstrosVistos || [];
+      const itemSelecionado = (window as any).diarioItemSelecionado;
+
+      // PÁGINA ESQUERDA - LISTA
+      html += `<div class="diary-page-left">`;
+      html += `<h3 style="text-align: center; border-bottom: 1px solid #444; padding-bottom: 5px;">Criaturas Conhecidas</h3>`;
+      html += `<div class="diary-list">`;
+      if (monstros.length === 0) {
+        html += `<p style="color: #666; font-style: italic; text-align: center;">Nenhuma criatura registrada ainda.</p>`;
+      } else {
+        monstros.forEach((m, i) => {
+          const isSelected = itemSelecionado === m;
+          html += `<button class="diary-list-btn ${isSelected ? 'selected' : ''}" id="btn-diary-item-${i}">${m}</button>`;
+        });
+      }
+      html += `</div></div>`;
+
+      // PÁGINA DIREITA - DETALHES
+      html += `<div class="diary-page-right">`;
+      if (itemSelecionado && monstros.includes(itemSelecionado)) {
+        const obj = battleEnemies[itemSelecionado as keyof typeof battleEnemies];
+        if (obj) {
+          html += `
+            <h3 style="color: #8b0000; margin-top: 0;">${itemSelecionado}</h3>
+            <p style="font-style: italic; color: #555; line-height: 1.4;">${obj.descricao || "Uma criatura misteriosa das profundezas."}</p>
+            <div style="margin-top: 15px;">
+              <strong style="color: #2b8a3e;">Estatísticas Base:</strong><br>
+              🗡️ Ataque: ${obj.attackPower}<br>
+              ❤️ Vida: ${obj.life}
+            </div>
+            <div style="margin-top: 15px;">
+              <strong style="color: #e67700;">Possíveis Drops:</strong><br>
+            `;
+          // Tenta pegar a lista de drops direto do rolarDrops ou tabelaDrops
+          // Como drops são dinâmicos ou tabela, podemos simular para mostrar o que dropa
+          // tabelaDrops será importado no topo
+          let dropsDoMonstro = tabelaDrops[itemSelecionado as keyof typeof tabelaDrops];
+          if (!dropsDoMonstro) {
+            const isGelo = /(Gelo|Ártico|Frio|Yeti|Congelado|Permafrost|Cristalino)/i.test(itemSelecionado);
+            const isFogo = /(Fogo|Lava|Flamejante|Infernal|Magma|Cinzas|Vulcão|Vulcânico|Salamandra|Fênix|Efreet)/i.test(itemSelecionado);
+            const isTrevas = /(Sombra|Trevas|Sombrio|Espectro|Pesadelo|Vampiro|Assassino|Banshee|Lich|Demônio|Alma|Ceifador|Wraith)/i.test(itemSelecionado);
+            let drop1 = `Fragmento de ${itemSelecionado}`;
+            let drop2 = `Essência de ${itemSelecionado}`;
+            if (isGelo) { drop1 = `Fragmento Congelado de ${itemSelecionado}`; drop2 = `Essência Gelada de ${itemSelecionado}`; }
+            else if (isFogo) { drop1 = `Fragmento Ígneo de ${itemSelecionado}`; drop2 = `Cinzas de ${itemSelecionado}`; }
+            else if (isTrevas) { drop1 = `Fragmento Sombrio de ${itemSelecionado}`; drop2 = `Essência Corrupta de ${itemSelecionado}`; }
+            dropsDoMonstro = [drop1, drop2];
+          }
+          html += `<ul style="padding-left: 20px; color: #444; margin-top: 5px;">`;
+          dropsDoMonstro.forEach((d: string) => {
+            html += `<li>${d}</li>`;
+          });
+          html += `</ul></div>`;
+        } else {
+          html += `<p>Dados corrompidos.</p>`;
+        }
+      } else {
+        html += `<div style="display:flex; height:100%; align-items:center; justify-content:center; color:#555;">Selecione uma criatura na página esquerda.</div>`;
+      }
+      html += `</div>`;
+    } else if (tabAtual === "ITENS") {
+      // Auto-register current items to ensure they show up even if missed
+      const s = save;
+      if (s.armasExtras) s.armasExtras.forEach(i => registrarItemVisto(i));
+      if (s.armadurasExtras) s.armadurasExtras.forEach(i => registrarItemVisto(i));
+      if (s.acessoriosExtras) s.acessoriosExtras.forEach(i => registrarItemVisto(i));
+      if (s.consumiveisExtras) s.consumiveisExtras.forEach(i => registrarItemVisto(i));
+      if (s.armaEquipada) registrarItemVisto(s.armaEquipada);
+      if (s.armaduraEquipada) registrarItemVisto(s.armaduraEquipada);
+      if (s.acessoriosEquipados) s.acessoriosEquipados.forEach(i => registrarItemVisto(i));
+      if (s.drops) Object.keys(s.drops).forEach(i => registrarItemVisto(i));
+      if (jogador) {
+        jogador.weaponInventory.forEach(w => registrarItemVisto(w.name));
+        jogador.inventory.forEach(i => registrarItemVisto(i));
+        if (jogador.equippedWeapon) registrarItemVisto(jogador.equippedWeapon.name);
+        if (jogador.equippedArmor) registrarItemVisto(jogador.equippedArmor.name);
+        jogador.equippedAccessories.forEach(a => registrarItemVisto(a.name));
+      }
+
+      const itens = lerSave().itensVistos || [];
+      const itemSelecionado = (window as any).diarioItemSelecionado;
+
+      // PÁGINA ESQUERDA - LISTA
+      html += `<div class="diary-page-left" style="overflow-y: auto;">`;
+      html += `<h3 style="text-align: center; border-bottom: 1px solid #444; padding-bottom: 5px;">Itens Conhecidos</h3>`;
+      html += `<div class="diary-list">`;
+      if (itens.length === 0) {
+        html += `<p style="color: #666; font-style: italic; text-align: center;">Nenhum item registrado ainda.</p>`;
+      } else {
+        // Group items for display? We can just list them alphabetically
+        const itensOrdenados = [...itens].sort();
+        itensOrdenados.forEach((it, i) => {
+          const isSelected = itemSelecionado === it;
+          html += `<button class="diary-list-btn ${isSelected ? 'selected' : ''}" id="btn-diary-item-id-${i}">${it}</button>`;
+        });
+      }
+      html += `</div></div>`;
+
+      // PÁGINA DIREITA - DETALHES
+      html += `<div class="diary-page-right" style="overflow-y: auto;">`;
+      if (itemSelecionado && itens.includes(itemSelecionado)) {
+        let objStr = "";
+        let nome = itemSelecionado;
+        let desc = "";
+        let utilidade = "";
+        let stats = "";
+        let passiva = "";
+
+        if (listaArmas[itemSelecionado]) {
+          const w = listaArmas[itemSelecionado]!;
+          desc = w.description;
+          utilidade = "Usado em combate para atacar inimigos fisicamente ou magicamente.";
+          stats = `Dano: ${w.damage} | Escalonamento: FOR(${w.scaling.strength || '-'}) DES(${w.scaling.dexterity || '-'}) INT(${w.scaling.intelligence || '-'}) SOR(${w.scaling.luck || '-'})`;
+        } else if (listaArmaduras[itemSelecionado]) {
+          const a = listaArmaduras[itemSelecionado]!;
+          desc = a.description;
+          utilidade = "Fornece proteção contra danos e bônus de vida.";
+          stats = `Vida: +${a.bonusVida} | Defesa: +${a.bonusDefesa}`;
+          if (a.passiva) passiva = `[${a.passiva.nome}] ${a.passiva.descricao}`;
+        } else if (listaAcessorios[itemSelecionado]) {
+          const a = listaAcessorios[itemSelecionado]!;
+          desc = a.description;
+          utilidade = "Fornece bônus de atributos ou passivas especiais.";
+          const s = a.bonusStats;
+          if (s) {
+            stats = `FOR: +${s.strength || 0} | DES: +${s.dexterity || 0} | INT: +${s.intelligence || 0} | SOR: +${s.luck || 0} | DEF: +${s.defense || 0}`;
+          }
+          if (a.passiva) passiva = `[${a.passiva.nome}] ${a.passiva.descricao}`;
+        } else if (listaConsumiveis[itemSelecionado]) {
+          const c = listaConsumiveis[itemSelecionado]!;
+          desc = c.description;
+          utilidade = "Item de uso único. Pode recuperar recursos ou aplicar efeitos no combate.";
+        } else {
+          // Fallback para drops/crafting materials
+          desc = "Material misterioso derrubado por criaturas ou encontrado em baús.";
+          utilidade = "Geralmente usado no Ferreiro para criar ou aprimorar equipamentos.";
+        }
+
+        html += `<h3 style="color: #0b7285; margin-top: 0;">${nome}</h3>`;
+        html += `<p style="font-style: italic; color: #555; line-height: 1.4;">${desc}</p>`;
+        html += `<div style="margin-top: 15px;">`;
+        if (utilidade) html += `<p><strong>Utilidade:</strong> <span style="color: #444;">${utilidade}</span></p>`;
+        if (stats) html += `<p><strong>Atributos:</strong> <span style="color: #2b8a3e;">${stats}</span></p>`;
+        if (passiva) html += `<p><strong>Passiva:</strong> <span style="color: #e67700;">${passiva}</span></p>`;
+        html += `</div>`;
+      } else {
+        html += `<div style="display:flex; height:100%; align-items:center; justify-content:center; color:#555; text-align:center;">Selecione um item na página esquerda.</div>`;
+      }
+      html += `</div>`;
+    } else if (tabAtual === "EXPEDICOES") {
+      const expConcluidas = save.expedicoesConcluidas || [];
+      const contagemExp = expConcluidas.reduce((acc, curr) => {
+        acc[curr] = (acc[curr] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const idsConcluidos = Object.keys(contagemExp);
+      const itemSelecionado = (window as any).diarioItemSelecionado;
+
+      // PÁGINA ESQUERDA - LISTA
+      html += `<div class="diary-page-left" style="overflow-y: auto;">`;
+      html += `<h3 style="text-align: center; border-bottom: 1px solid #444; padding-bottom: 5px;">Expedições Exploradas</h3>`;
+      html += `<div class="diary-list">`;
+      if (idsConcluidos.length === 0) {
+        html += `<p style="color: #666; font-style: italic; text-align: center;">Nenhuma expedição concluída ainda.</p>`;
+      } else {
+        idsConcluidos.forEach((idExp, i) => {
+          const exp = expeditions[idExp as keyof typeof expeditions];
+          if (exp) {
+            const isSelected = itemSelecionado === idExp;
+            html += `<button class="diary-list-btn ${isSelected ? 'selected' : ''}" id="btn-diary-exp-${i}">${exp.nome}</button>`;
+          }
+        });
+      }
+      html += `</div></div>`;
+
+      // PÁGINA DIREITA - DETALHES
+      html += `<div class="diary-page-right" style="overflow-y: auto;">`;
+      if (itemSelecionado && idsConcluidos.includes(itemSelecionado)) {
+        const exp = expeditions[itemSelecionado as keyof typeof expeditions];
+        if (exp) {
+          const vitorias = contagemExp[itemSelecionado] || 0;
+
+          // Coletar inimigos únicos
+          const monstros = new Set<string>();
+          Object.values(exp.monstrosPorAndar).forEach(arr => arr.forEach(m => monstros.add(m)));
+          Object.values(exp.bossesPorAndar).forEach(arr => arr.forEach(m => monstros.add(m)));
+
+          // Determinar mecânica (hardcoded baseada no id para dar um flavor, já que não tem na interface)
+          let mecanica = "Nenhuma mecânica especial registrada.";
+          if (exp.id === "ancient_dungeon") mecanica = "A mais clássica das masmorras. Uma introdução balanceada aos perigos do mundo.";
+          if (exp.id === "frost_mountain") mecanica = "Ventos congelantes podem reduzir sua recuperação de vida. Monstros imunes ao frio.";
+          if (exp.id === "flame_kingdom") mecanica = "O calor extremo derrete armaduras inferiores e buffa criaturas de fogo.";
+          if (exp.id === "shadow_realm") mecanica = "A escuridão obscurece sua visão, aumentando as chances de encontros com elites surpresa.";
+
+          html += `<h3 style="color: ${exp.corTema || '#8b0000'}; margin-top: 0; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">${exp.nome}</h3>`;
+          html += `<p style="font-style: italic; color: #555; line-height: 1.4;">${exp.descricao}</p>`;
+          html += `<div style="margin-top: 15px;">`;
+          html += `<p><strong>🏆 Conclusões Bem-Sucedidas:</strong> <span style="color: #e67700; font-weight: bold;">${vitorias}</span></p>`;
+          html += `<p><strong>📍 Andares:</strong> <span style="color: #444;">${exp.andares}</span></p>`;
+          html += `<p><strong>⚙️ Mecânica Única:</strong> <span style="color: #2b8a3e;">${mecanica}</span></p>`;
+          html += `</div>`;
+          html += `<div style="margin-top: 15px;">`;
+          html += `<strong style="color: #0b7285;">Fauna Encontrada:</strong><br>`;
+          html += `<ul style="padding-left: 20px; color: #444; margin-top: 5px;">`;
+          Array.from(monstros).forEach((m: string) => {
+            html += `<li>${m}</li>`;
+          });
+          html += `</ul></div>`;
+        }
+      } else {
+        html += `<div style="display:flex; height:100%; align-items:center; justify-content:center; color:#555; text-align:center;">Selecione uma expedição na página esquerda.</div>`;
+      }
+      html += `</div>`;
+    }
+
+    html += `</div>`; // diary-book fechamento
+
+    html += `
+      <div style="display: flex; justify-content: center; margin-top: 20px;">
+        <button id="btn-diario-voltar" class="btn-action">Voltar à Vila</button>
+      </div>
+    `;
+
+    app.innerHTML = html;
+
+    setTimeout(() => {
+      const btnVoltar = document.getElementById("btn-diario-voltar");
+      if (btnVoltar) {
+        btnVoltar.onclick = () => {
+          (window as any).diarioItemSelecionado = null; // reset
+          estadoAtual = "LOBBY";
+          render();
+        };
+      }
+
+      const tabCriaturas = document.getElementById("btn-tab-criaturas");
+      if (tabCriaturas) tabCriaturas.onclick = () => { (window as any).diarioTabAtual = 'CRIATURAS'; (window as any).diaryScrollTop = 0; render(); };
+      const tabItens = document.getElementById("btn-tab-itens");
+      if (tabItens) tabItens.onclick = () => { (window as any).diarioTabAtual = 'ITENS'; (window as any).diaryScrollTop = 0; render(); };
+      const tabExpedicoes = document.getElementById("btn-tab-expedicoes");
+      if (tabExpedicoes) tabExpedicoes.onclick = () => { (window as any).diarioTabAtual = 'EXPEDICOES'; (window as any).diaryScrollTop = 0; render(); };
+
+      if (tabAtual === "CRIATURAS") {
+        const monstros = save.monstrosVistos || [];
+        monstros.forEach((m, i) => {
+          const btn = document.getElementById(`btn-diary-item-${i}`);
+          if (btn) {
+            btn.onclick = () => {
+              const container = document.querySelector('.diary-page-left');
+              if (container) (window as any).diaryScrollTop = container.scrollTop;
+              (window as any).diarioItemSelecionado = m;
+              render();
+            };
+          }
+        });
+      } else if (tabAtual === "ITENS") {
+        const itens = save.itensVistos || [];
+        const itensOrdenados = [...itens].sort();
+        itensOrdenados.forEach((it, i) => {
+          const btn = document.getElementById(`btn-diary-item-id-${i}`);
+          if (btn) {
+            btn.onclick = () => {
+              const container = document.querySelector('.diary-page-left');
+              if (container) (window as any).diaryScrollTop = container.scrollTop;
+              (window as any).diarioItemSelecionado = it;
+              render();
+            };
+          }
+        });
+      } else if (tabAtual === "EXPEDICOES") {
+        const expConcluidas = save.expedicoesConcluidas || [];
+        const idsConcluidos = Array.from(new Set(expConcluidas));
+        idsConcluidos.forEach((idExp, i) => {
+          const btn = document.getElementById(`btn-diary-exp-${i}`);
+          if (btn) {
+            btn.onclick = () => {
+              const container = document.querySelector('.diary-page-left');
+              if (container) (window as any).diaryScrollTop = container.scrollTop;
+              (window as any).diarioItemSelecionado = idExp;
+              render();
+            };
+          }
+        });
+      }
+
+      // Restore scroll position for the left pane
+      const container = document.querySelector('.diary-page-left');
+      if (container && (window as any).diaryScrollTop !== undefined) {
+        container.scrollTop = (window as any).diaryScrollTop;
+      }
+    }, 0);
     return;
   }
 
@@ -1058,9 +1373,15 @@ function render() {
 
         if (nivelUp > 0) {
           skillsPendenteDeEscolha = nivelUp;
-          estadoAtual = "LEVEL_UP_SKILL";
+          (jogador as any)._afterLevelUpAction = () => {
+            estadoAtual = "EXPLORACAO";
+            opcoesAcao = [{ texto: "Avançar para próxima sala", acao: () => avancarSala() }];
+            atualizarLog(`Você pulou para o Andar ${a} e ganhou ${sim.xp} XP / ${sim.gold}G!`);
+            render();
+          };
+          estadoAtual = "LEVEL_UP_SCREEN";
           atualizarLog(`Você pulou para o Andar ${a} e ganhou ${sim.xp} XP / ${sim.gold}G!`, () => {
-            setTimeout(() => escolherNovaSkillLevelUp(), 800);
+            setTimeout(() => irParaTelaLevelUp(), 800);
           });
         } else {
           estadoAtual = "EXPLORACAO";
@@ -1226,13 +1547,13 @@ function render() {
   const jogadorVidaPerc = Math.max(0, (jogador.life / jogador.maxLife) * 100);
   const prevJogadorVidaPerc = (jogador as any)._lastRenderedVidaPerc ?? jogadorVidaPerc;
   (jogador as any)._lastRenderedVidaPerc = jogadorVidaPerc;
-  
+
   const jogadorTomouDano = (jogador as any)._lastRenderedLife !== undefined && jogador.life < (jogador as any)._lastRenderedLife;
   (jogador as any)._lastRenderedLife = jogador.life;
 
   const jHpClass = jogadorTomouDano ? "health-drop animate-width" : "animate-width";
   const jHpShake = jogadorTomouDano ? "shake-hit" : "";
-  
+
   const jogadorManaPerc = Math.max(0, (jogador.mana / jogador.maxMana) * 100);
   const prevJogadorManaPerc = (jogador as any)._lastRenderedManaPerc ?? jogadorManaPerc;
   (jogador as any)._lastRenderedManaPerc = jogadorManaPerc;
@@ -1306,9 +1627,9 @@ function render() {
         <div style="margin-top:8px; padding-top:6px; border-top: 1px solid #333;">
           <span style="color:#888; font-size:0.85rem;">Passivas: </span>
           ${jogador.skills.filter(s => s.tipo === "PASSIVA").map(s => {
-            const cor = s.raridade === "EPICA" ? "#cc5de8" : s.raridade === "LENDARIA" ? "#fcc419" : s.raridade === "RARA" ? "#339af0" : "#aaa";
-            return `<span style="color:${cor}; font-size:0.85rem; margin-right:10px;" title="${s.descricao}">✨ ${s.nome}</span>`;
-          }).join("")}
+    const cor = s.raridade === "EPICA" ? "#cc5de8" : s.raridade === "LENDARIA" ? "#fcc419" : s.raridade === "RARA" ? "#339af0" : "#aaa";
+    return `<span style="color:${cor}; font-size:0.85rem; margin-right:10px;" title="${s.descricao}">✨ ${s.nome}</span>`;
+  }).join("")}
         </div>` : ""}
       </div>
     </div>
@@ -1368,7 +1689,7 @@ function render() {
         const porcentagemVida = Math.max(0, (aliado.life / aliado.maxLife) * 100);
         const prevPorcentagemVida = (aliado as any)._lastRenderedVidaPerc ?? porcentagemVida;
         (aliado as any)._lastRenderedVidaPerc = porcentagemVida;
-        
+
         const tomouDano = (aliado as any)._lastRenderedLife !== undefined && aliado.life < (aliado as any)._lastRenderedLife;
         (aliado as any)._lastRenderedLife = aliado.life;
 
@@ -1383,7 +1704,7 @@ function render() {
         `;
       });
     }
-    
+
     if (logMensagem) {
       mainPanelHTML += `</div><div style="margin-bottom: 20px; font-size: 1.1rem; color: #ccc; text-align: center;">${logMensagem}</div>`;
     } else {
@@ -1452,23 +1773,25 @@ function render() {
     mainPanelHTML += `</div>`; // Close action-box
   } else {
     // Normal Log / Events
-    if (["EVENTO_BOSS", "EVENTO_RECOMPENSA", "ESCOLHA_SALA", "EVENTO_FOGUEIRA", "EVENTO_ALTAR", "EVENTO_PORTAL"].includes(estadoAtual)) {
-       let tituloEvento = "";
-       let subtituloEvento = "";
-       let iconeEvento = "";
-       if (estadoAtual === "EVENTO_BOSS") {
-         tituloEvento = "Cuidado!"; subtituloEvento = "Uma presença esmagadora se aproxima..."; iconeEvento = "sprites/boss-sprite.png";
-       } else if (estadoAtual === "EVENTO_RECOMPENSA") {
-         tituloEvento = "Recompensa!"; subtituloEvento = "Você encontrou algo interessante.";
-       }
-       if (iconeEvento) {
-         mainPanelHTML += `<div style="text-align: center;"><img src="${iconeEvento}" class="event-level-up-icon" alt="Event Icon"></div>`;
-       }
-       if (tituloEvento) {
-         mainPanelHTML += `<div class="event-title" style="margin-top: 0;">${tituloEvento}</div><div class="event-subtitle">${subtituloEvento}</div>`;
-       }
+    if (["EVENTO_BOSS", "EVENTO_RECOMPENSA", "ESCOLHA_SALA", "EVENTO_FOGUEIRA", "EVENTO_ALTAR", "EVENTO_PORTAL", "UPGRADE_SKILLS"].includes(estadoAtual)) {
+      let tituloEvento = "";
+      let subtituloEvento = "";
+      let iconeEvento = "";
+      if (estadoAtual === "EVENTO_BOSS") {
+        tituloEvento = "Cuidado!"; subtituloEvento = "Uma presença esmagadora se aproxima..."; iconeEvento = "sprites/boss-sprite.png";
+      } else if (estadoAtual === "EVENTO_RECOMPENSA") {
+        tituloEvento = "Recompensa!"; subtituloEvento = "Você encontrou algo interessante.";
+      } else if (estadoAtual === "UPGRADE_SKILLS") {
+        tituloEvento = "Evolução!"; subtituloEvento = "Você aprimorou suas capacidades de combate.";
+      }
+      if (iconeEvento) {
+        mainPanelHTML += `<div style="text-align: center;"><img src="${iconeEvento}" class="event-level-up-icon" alt="Event Icon"></div>`;
+      }
+      if (tituloEvento) {
+        mainPanelHTML += `<div class="event-title" style="margin-top: 0;">${tituloEvento}</div><div class="event-subtitle">${subtituloEvento}</div>`;
+      }
     }
-    
+
     if (logMensagem) {
       mainPanelHTML += `<div style="font-size: 1.25rem; line-height: 1.6; color: #ddd; text-align: center; margin: auto 0;">${logMensagem}</div></div>`;
     } else {
@@ -1582,6 +1905,7 @@ function gerarInimigos() {
       const finalHP = Math.floor(bossObj.life * 2.0 * fatorEscalaHP * multiplicadorDificuldade);
 
       inimigosAtuais.push(new enemy(bossName, finalATK, finalHP, true));
+      registrarMonstroVisto(bossName);
     }
   } else {
     playMusic("dungeon");
@@ -1608,6 +1932,7 @@ function gerarInimigos() {
       const finalHP = Math.floor(obj.life * fatorEscalaHP * multiplicadorDificuldade * eliteMultHP);
 
       inimigosAtuais.push(new enemy(monstro, finalATK, finalHP, false));
+      registrarMonstroVisto(monstro);
     }
 
   }
@@ -2175,18 +2500,20 @@ function turnoInimigo() {
   // Sorte de Principiante
   if (primeiroTurnoDoCombate) {
     primeiroTurnoDoCombate = false;
-    const temSorteDePrincipiante = jogador.skills.some(s => s.nome === "Sorte de principiante");
-    if (temSorteDePrincipiante) {
-      const chance = Math.min(0.30, jogador.luck * 0.02);
-      if (Math.random() < chance) {
-        atualizarLog(`🍀 Sorte de Principiante! Você ganha um turno extra!`, () => {
-          setTimeout(() => menuBatalhaPrincipal(), 800);
-        });
-        return;
-      }
-    }
   }
 
+  // Sorte de Principiante
+  const skillSorte = jogador.skills.find(s => s.nome === "Sorte de Principiante");
+  if (skillSorte) {
+    const baseChance = skillSorte.nivel === 1 ? 0.05 : skillSorte.nivel === 2 ? 0.10 : 0.15;
+    const chance = Math.min(0.40, baseChance + (jogador.luck * 0.02));
+    if (Math.random() < chance) {
+      atualizarLog(`🍀 Sorte de Principiante! Você ganha um turno extra!`, () => {
+        setTimeout(() => menuBatalhaPrincipal(), 800);
+      });
+      return;
+    }
+  }
   // --- FASE ALIADOS ---
   if (aliadosAtuais.length > 0) {
     aliadosAtuais = aliadosAtuais.filter(a => a.life > 0);
@@ -2613,10 +2940,11 @@ function eventoFogueira() {
   logMensagem = "Você encontra uma fogueira acolhedora. Seu calor revigora seu corpo e mente.";
   opcoesAcao = [
     {
-      texto: "Descansar (Cura 40% HP/Mana)", acao: () => {
+      texto: "Descansar (Cura 40% HP/Mana/Energia)", acao: () => {
         jogador.life = Math.min(jogador.maxLife, jogador.life + Math.floor(jogador.maxLife * 0.4));
         jogador.mana = Math.min(jogador.maxMana, jogador.mana + Math.floor(jogador.maxMana * 0.4));
-        atualizarLog("Você descansou e recuperou vida e mana.", () => gerarOpcoesDeSala());
+        jogador.energy = Math.min(jogador.maxEnergy, jogador.energy + Math.floor(jogador.maxEnergy * 0.4));
+        atualizarLog("Você descansou e recuperou vida, mana e energia.", () => gerarOpcoesDeSala());
       }
     },
     {
@@ -2850,7 +3178,84 @@ function vencerBatalha() {
   render();
 }
 
+
+function iniciarUpgradeSkills() {
+  estadoAtual = "UPGRADE_SKILLS";
+  const habilidadesElegiveis = jogador.skills.filter(s => s.nivel < 3);
+
+  if (habilidadesElegiveis.length === 0) {
+    const goldBonus = 150 * (andarAtual || 1);
+    jogador.gold += goldBonus;
+    jogador.pendingSkillUpgrades--;
+    logMensagem = `Você não tem habilidades elegíveis para evolução.\nNo lugar, você encontrou <span style="color:#fcc419;">${goldBonus}G</span> perdidos no campo de batalha!`;
+    opcoesAcao = [
+      { texto: "Continuar", acao: () => processarPosResumoBatalha() }
+    ];
+    render();
+    return;
+  }
+
+  const opcoesUpgrade = [...habilidadesElegiveis].sort(() => 0.5 - Math.random()).slice(0, 3);
+  
+  logMensagem = `<div class="upgrade-cards-container">`;
+  opcoesAcao = []; // Vazio pq usamos botões customizados
+
+  let htmlCards = '';
+  opcoesUpgrade.forEach((skill, i) => {
+    const nextLevel = (skill.nivel + 1) as 2 | 3;
+    const descMelhoria = skill.getUpgradeDescricao ? skill.getUpgradeDescricao() : "Atributos aprimorados (WIP)";
+    htmlCards += `
+      <div class="upgrade-card rarity-${skill.raridade}" id="btn-upgrade-skill-${i}">
+        <div class="upgrade-level-badge">Evoluir para v${nextLevel}</div>
+        <h3>${skill.nome}</h3>
+        <div class="upgrade-desc">${skill.descricao}</div>
+        <div class="upgrade-improvements">
+          <strong>Melhorias:</strong><br>
+          ${descMelhoria}
+        </div>
+      </div>
+    `;
+  });
+  
+  logMensagem += htmlCards + `</div>`;
+  (window as any)._opcoesUpgrade = opcoesUpgrade;
+
+  render();
+
+  setTimeout(() => {
+    opcoesUpgrade.forEach((skill, i) => {
+      const el = document.getElementById(`btn-upgrade-skill-${i}`);
+      if (el) {
+        el.onclick = () => {
+          skill.nivel++;
+          jogador.pendingSkillUpgrades--;
+          
+          let upgradeInfo = "";
+          if (skill.tipo === "PASSIVA") {
+             upgradeInfo = `\nA passiva agora aplicará seus novos bônus automaticamente.`;
+          }
+
+          logMensagem = `<div style="text-align:center;">
+            <h2 style="color:#a9e34b;">Evolução Concluída!</h2>
+            <p>Você aprimorou a habilidade <strong>${skill.nome}</strong> para a <strong>versão ${skill.nivel}</strong>!</p>
+            ${upgradeInfo}
+          </div>`;
+          
+          opcoesAcao = [
+            { texto: "Continuar", acao: () => processarPosResumoBatalha() }
+          ];
+          render();
+        };
+      }
+    });
+  }, 0);
+}
 function processarPosResumoBatalha() {
+  if (jogador.pendingSkillUpgrades > 0) {
+    iniciarUpgradeSkills();
+    return;
+  }
+
   const nivelUp = (jogador as any)._pendingLevelUps || 0;
   const hasLoot = battleSummary.armasEncontradas.length > 0 || battleSummary.consumiveisEncontrados.length > 0 || salaAtual === 7;
 
@@ -2919,7 +3324,7 @@ function irParaTelaLevelUp() {
         skillsPendenteDeEscolha = 0; // fallback se não tiver mais
       }
     }
-    
+
     opcoesHabilidadesAtuais.forEach(op => {
       opcoes.push({
         texto: `<span style="color: #4dabf7;">[Habilidade]</span> ${op.nome} (${op.raridade})`,
